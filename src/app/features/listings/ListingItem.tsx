@@ -18,9 +18,26 @@ interface Props extends ItemActions {
 
 /** ข้อความเนื้อหาโพสต์โดยตัดบรรทัดชื่อและบรรทัดราคาออก เหลือรายละเอียด */
 function snippet(l: Listing): string {
+  const norm = (s: string) => s.toLowerCase().replace(/#\S+/g, '').replace(/\s+/g, ' ').trim();
+  const title = norm(l.title.replace(/…$/, ''));
+  let titleDropped = false;
   return l.rawText
     .split('\n')
-    .filter((line) => line.trim() && line.trim() !== l.title && !/^ราคา\s/.test(line.trim()))
+    .map((s) => s.trim())
+    .filter((line) => {
+      if (!line) return false;
+      const n = norm(line);
+      // บรรทัดแรกที่มีชื่อสินค้า (ชื่อถูกแยกจากบรรทัดนี้)
+      if (!titleDropped && title && n.includes(title)) {
+        titleDropped = true;
+        // เก็บส่วนที่เหลือของบรรทัดถ้ายาวพอ เช่น "iPhone 13 ราคา 12,900 แบต 86%" → ตัดชื่อออก
+        return false;
+      }
+      // บรรทัดที่มีแต่ราคา
+      if (/^(ราคา|price|฿)/i.test(line) && line.length <= 24) return false;
+      if (l.priceText && n === norm(l.priceText)) return false;
+      return true;
+    })
     .join(' ');
 }
 

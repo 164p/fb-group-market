@@ -24,9 +24,10 @@ npm run build      # ผลลัพธ์ใน dist/
 การทดสอบดักทุก request ไปที่ไฟล์เหล่านี้ จึงไม่ติดต่อ Facebook จริง
 
 ```bash
-npm run build:bm
 pip install playwright && python -m playwright install chromium
-python3 e2e/bookmarklet_e2e.py
+npm run build
+python3 e2e/bookmarklet_e2e.py   # bookmarklet กับหน้ารับข้อมูลจำลอง (7 สถานการณ์)
+python3 e2e/full_flow_e2e.py     # ครบวงจร: Facebook จำลอง → เว็บแอปจริงจาก dist/ → หน้าสินค้า
 ```
 
 เมื่อ Facebook เปลี่ยนหน้าตา: แก้ `src/bookmarklet/dom/selectors.ts` เป็นหลัก แล้วปรับหน้าจำลองให้ตรงกับโครงสร้างใหม่
@@ -65,5 +66,5 @@ src/
 | 4 | หน้าจัดการกลุ่ม | เสร็จ |
 | 5 | Parser + unit tests | เสร็จ |
 | 6 | Bookmarklet | เสร็จ (รอทดสอบกับกลุ่มจริง) |
-| 7 | ช่องทางส่งข้อมูล + หน้า Receive | |
+| 7 | ช่องทางส่งข้อมูล + หน้า Receive | เสร็จ |
 | 8 | Guide, Settings, ทดสอบรวม | |

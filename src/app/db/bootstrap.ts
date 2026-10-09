@@ -16,7 +16,12 @@ export function bootstrapData(): Promise<void> {
       /* บางเบราว์เซอร์ไม่รองรับ ไม่เป็นไร */
     }
     try {
-      await seedOnFirstRun(store);
+      // เปิดครั้งแรกด้วยหน้ารับข้อมูล (ผู้ใช้กดปุ่มดึงสินค้าเลย) → ไม่ต้องใส่ข้อมูลตัวอย่างปนกับข้อมูลจริง
+      if (location.hash.startsWith('#/receive')) {
+        if ((await store.settings.getMeta('sampleSeededAt')) === null) await store.settings.setMeta('sampleSeededAt', Date.now());
+      } else {
+        await seedOnFirstRun(store);
+      }
     } catch (e) {
       console.error('seed failed', e);
     }

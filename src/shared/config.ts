@@ -7,6 +7,8 @@ export const FACEBOOK_ORIGINS = ['https://www.facebook.com', 'https://web.facebo
 
 /** เพิ่มเลขนี้ทุกครั้งที่ bookmarklet เปลี่ยนแบบที่ต้องให้ผู้ใช้ลากปุ่มใหม่ */
 export const BOOKMARKLET_VERSION = 1;
+/** เว็บแอปรับข้อมูลจาก bookmarklet เวอร์ชันนี้ขึ้นไปเท่านั้น (เวอร์ชันเก่าจะถูกขอให้ลากปุ่มใหม่) */
+export const MIN_BOOKMARKLET_VERSION = 1;
 
 /** เพิ่มเลขนี้เมื่อปรับ logic ของ parser เพื่อให้ parse ข้อมูลเก่าใหม่ได้ */
 export const PARSER_VERSION = 1;
