@@ -123,6 +123,33 @@ export function listingsRepo(db: AppDB) {
       });
     },
 
+    /**
+     * ใช้ parser ปัจจุบันแยกข้อมูลใหม่จาก rawText (ไม่รวมข้อมูลตัวอย่าง)
+     * @returns จำนวนรายการที่ราคา/ชื่อ/สถานะเปลี่ยน
+     */
+    async reparseAll(reparse: (l: Listing) => Listing, skipGroup: (groupId: string) => boolean): Promise<number> {
+      return db.transaction('rw', db.listings, async () => {
+        const all = await db.listings.toArray();
+        const changed: Listing[] = [];
+        for (const l of all) {
+          if (skipGroup(l.groupId)) continue;
+          const r = reparse(l);
+          if (
+            r.title !== l.title ||
+            r.price !== l.price ||
+            r.priceMin !== l.priceMin ||
+            r.priceMax !== l.priceMax ||
+            r.priceType !== l.priceType ||
+            r.status !== l.status ||
+            r.parserVersion !== l.parserVersion
+          )
+            changed.push(r);
+        }
+        await db.listings.bulkPut(changed);
+        return changed.length;
+      });
+    },
+
     setFavorite: (id: string, favorite: boolean) => db.listings.update(id, { favorite }),
     setHidden: (id: string, hidden: boolean) => db.listings.update(id, { hidden }),
     remove: (id: string) => db.listings.delete(id),

@@ -49,7 +49,7 @@ src/
 | 2 | Data layer + ข้อมูลตัวอย่าง | เสร็จ |
 | 3 | หน้ารายการสินค้า | เสร็จ |
 | 4 | หน้าจัดการกลุ่ม | เสร็จ |
-| 5 | Parser + unit tests | |
+| 5 | Parser + unit tests | เสร็จ |
 | 6 | Bookmarklet | |
 | 7 | ช่องทางส่งข้อมูล + หน้า Receive | |
 | 8 | Guide, Settings, ทดสอบรวม | |

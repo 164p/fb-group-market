@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Button } from '../../components/Button';
 import { store } from '../../db';
-import { removeSampleData, seedSampleData } from '../../db/sample';
+import { isSampleGroupId, removeSampleData, seedSampleData } from '../../db/sample';
+import { reparseListing } from '../../../shared/parser';
 import { useDataStats } from '../../hooks/useData';
 import { th } from '../../i18n/th';
 
@@ -54,6 +55,23 @@ export default function DataSection() {
           onClick={() => run(() => removeSampleData(store), t.doneRemoveSample)}
         >
           {t.removeSample}
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={busy || !stats?.realGroups}
+          title="ใช้ตัวแยกราคาและชื่อสินค้าเวอร์ชันล่าสุดกับโพสต์ที่เก็บไว้แล้ว"
+          onClick={async () => {
+            setBusy(true);
+            setMessage(null);
+            try {
+              const n = await store.listings.reparseAll(reparseListing, isSampleGroupId);
+              setMessage(n ? `อัปเดตแล้ว ${n.toLocaleString('th-TH')} รายการ` : 'ข้อมูลเป็นปัจจุบันแล้ว');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          แยกราคาและชื่อใหม่
         </Button>
         <Button
           variant="danger"

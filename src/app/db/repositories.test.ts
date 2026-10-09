@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../shared/config';
+import { reparseListing } from '../../shared/parser';
 import type { Listing } from '../../shared/types';
 import { defaultGroupName, listingKey, repos, type Repos } from './repositories';
 import { buildSampleData, removeSampleData, SAMPLE_COUNT, seedOnFirstRun, seedSampleData } from './sample';
@@ -102,6 +103,18 @@ describe('listings.upsertMany', () => {
 
     const two = await db.listings.get(listingKey('g', '2'));
     expect(two).toMatchObject({ hidden: true, postedAt: 1_000 });
+  });
+
+  it('reparseAll rewrites changed rows, skips sample groups and keeps user flags', async () => {
+    await store.listings.upsertMany([
+      listing('g', '1', { rawText: 'ขาย iPad ราคา 9,900 บาท', price: 1, title: 'เก่า', favorite: true }),
+      listing('g', '2', { rawText: 'สินค้า ราคา 100', price: 100, title: 'สินค้า' }),
+      listing('sample-x', '3', { rawText: 'ราคา 5,000', price: 1 }),
+    ]);
+    const n = await store.listings.reparseAll(reparseListing, (id) => id.startsWith('sample-'));
+    expect(n).toBe(1);
+    expect(await db.listings.get(listingKey('g', '1'))).toMatchObject({ price: 9900, title: 'iPad', favorite: true });
+    expect((await db.listings.get(listingKey('sample-x', '3')))?.price).toBe(1);
   });
 
   it('returns known post ids for a group', async () => {
