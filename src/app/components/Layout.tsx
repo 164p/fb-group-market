@@ -15,7 +15,7 @@ const NAV = [
 export function BrandMark({ size = 32 }: { size?: number }) {
   return (
     <span
-      className="grid shrink-0 place-items-center rounded-[9px] bg-accent text-accent-ink"
+      className="grid shrink-0 place-items-center rounded-[9px] bg-accent text-tag"
       style={{ width: size, height: size }}
       aria-hidden
     >

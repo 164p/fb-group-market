@@ -15,9 +15,11 @@
   "dependencies": {
     "dexie": "^4.4.6",
     "dexie-react-hooks": "^1.1.7",
+    "fuse.js": "^7.5.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^6.28.0",
+    "react-virtuoso": "^4.18.16"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",

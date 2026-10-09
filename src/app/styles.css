@@ -5,35 +5,41 @@
 
 @theme {
   --font-sans: 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
+  /* ตัวเลขราคาบนป้าย: แคบ หนา อ่านไกลได้ เหมือนป้ายราคาเขียนมือในตลาด */
+  --font-price: 'IBM Plex Sans Condensed', 'IBM Plex Sans Thai', ui-sans-serif, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
-  /* โทนกระดาษอุ่น + ส้มป้ายราคา */
-  --color-paper: #f7f4ee;
-  --color-surface: #fffdf9;
-  --color-sunken: #efeae0;
-  --color-ink: #1f1b14;
-  --color-muted: #6b6356;
-  --color-line: #e2dbcd;
-  --color-accent: #c2410c;
-  --color-accent-ink: #fff7ed;
-  --color-accent-soft: #fde7d6;
-  --color-good: #15803d;
-  --color-warn: #b45309;
+  /* กระดาษหนังสือพิมพ์เย็น + หมึกเขียวดำ + เขียวผ้าใบแผงตลาด + เหลืองสติกเกอร์ราคา */
+  --color-paper: #f2f3ee;
+  --color-surface: #ffffff;
+  --color-sunken: #e8eae2;
+  --color-ink: #16201b;
+  --color-muted: #5b6862;
+  --color-line: #d8dcd2;
+  --color-accent: #0f6b57;
+  --color-accent-ink: #f2fbf7;
+  --color-accent-soft: #dcefe7;
+  --color-tag: #ffd60a;
+  --color-tag-ink: #16201b;
+  --color-good: #0f6b57;
+  --color-warn: #a15c00;
 }
 
 /* สีโหมดมืด: เขียนทับตัวแปรเดียวกัน ทุก utility เปลี่ยนตามอัตโนมัติ */
 .dark {
-  --color-paper: #16140f;
-  --color-surface: #1f1c16;
-  --color-sunken: #2a261e;
-  --color-ink: #f3eee4;
-  --color-muted: #a99f8e;
-  --color-line: #383227;
-  --color-accent: #f97316;
-  --color-accent-ink: #1f1206;
-  --color-accent-soft: #3b2212;
-  --color-good: #4ade80;
-  --color-warn: #fbbf24;
+  --color-paper: #0f1512;
+  --color-surface: #17201c;
+  --color-sunken: #1f2a25;
+  --color-ink: #e9efeb;
+  --color-muted: #97a69f;
+  --color-line: #2c3833;
+  --color-accent: #45c9a5;
+  --color-accent-ink: #062018;
+  --color-accent-soft: #163a30;
+  --color-tag: #ffd60a;
+  --color-tag-ink: #16201b;
+  --color-good: #45c9a5;
+  --color-warn: #f5b84a;
 }
 
 html {
