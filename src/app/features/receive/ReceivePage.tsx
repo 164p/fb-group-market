@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { decodePayload } from '../../../shared/transfer';
-import { MIN_BOOKMARKLET_VERSION } from '../../../shared/config';
+import { BOOKMARKLET_VERSION, MIN_BOOKMARKLET_VERSION } from '../../../shared/config';
 import { isBridgeMessage, isExportPayload, isTrustedFacebookOrigin, type BridgeMessage } from '../../../shared/protocol';
 import type { StopReason } from '../../../shared/types';
 import { BrandMark } from '../../components/Layout';
@@ -15,7 +15,7 @@ type View =
   | { kind: 'waiting' }
   | { kind: 'saving' }
   | { kind: 'receiving'; session: IngestSession }
-  | { kind: 'done'; session: IngestSession; stopReason: StopReason; imported?: boolean }
+  | { kind: 'done'; session: IngestSession; stopReason: StopReason; imported?: boolean; oldButton?: boolean }
   | { kind: 'error'; title: string; body: string };
 
 const STOP_TEXT: Record<StopReason, string> = {
@@ -169,7 +169,12 @@ export default function ReceivePage() {
         if (!isExportPayload(data)) throw new Error('not an export');
         const s = await ingestor.current.importExport(data);
         if (!s) throw new Error('bad group');
-        setView({ kind: 'done', session: { ...s, totals: { ...s.totals } }, stopReason: s.stopReason ?? data.stopReason });
+        setView({
+          kind: 'done',
+          session: { ...s, totals: { ...s.totals } },
+          stopReason: s.stopReason ?? data.stopReason,
+          oldButton: (data.bookmarkletVersion ?? 0) < BOOKMARKLET_VERSION,
+        });
       } catch (e) {
         console.error(e);
         setView({ kind: 'error', title: 'อ่านข้อมูลในลิงก์ไม่ได้', body: 'ลองกด "ส่งเข้าเว็บ" บน Facebook อีกครั้ง หรือใช้ "คัดลอกข้อมูลแทน"' });
@@ -190,7 +195,13 @@ export default function ReceivePage() {
     if (!isExportPayload(data)) return 'ข้อมูลไม่ถูกต้อง ต้องเป็นข้อความที่คัดลอกจากปุ่ม "คัดลอกข้อมูล" ทั้งหมด';
     const s = await ingestor.current.importExport(data);
     if (!s) return 'อ่านข้อมูลกลุ่มไม่ได้';
-    setView({ kind: 'done', session: s, stopReason: s.stopReason ?? data.stopReason, imported: true });
+    setView({
+      kind: 'done',
+      session: s,
+      stopReason: s.stopReason ?? data.stopReason,
+      imported: true,
+      oldButton: (data.bookmarkletVersion ?? 0) < BOOKMARKLET_VERSION,
+    });
     return null;
   }, []);
 
@@ -268,6 +279,15 @@ export default function ReceivePage() {
           <p className="mt-3 text-sm text-muted thai-wrap">
             ได้ {nf(view.session.totals.received)} โพสต์ · หยุดเพราะ{STOP_TEXT[view.stopReason]}
           </p>
+          {view.oldButton && (
+            <p className="mt-4 rounded-xl bg-accent-soft p-3 text-sm thai-wrap">
+              มีปุ่มดึงสินค้าเวอร์ชันใหม่{' '}
+              <Link to={ROUTES.setup} target="_blank" className="font-semibold text-accent hover:underline">
+                ลากปุ่มใหม่
+              </Link>{' '}
+              แทนบุ๊กมาร์กเดิมได้เลย
+            </p>
+          )}
           <div className="mt-6 flex flex-col gap-2">
             <Link
               to={`/?g=${encodeURIComponent(view.session.group.id)}`}

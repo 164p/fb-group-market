@@ -30,6 +30,16 @@ def check(name, cond, detail=''):
         failures.append(name)
 
 
+
+def accept_terms(page):
+    """ยอมรับข้อตกลงในหน้าต่างที่ขึ้นเมื่อเปิดเว็บครั้งแรก (ถ้ามี)"""
+    dlg = page.locator('dialog[open][aria-labelledby="terms-title"]')
+    if dlg.count():
+        dlg.get_by_role('checkbox').check()
+        dlg.get_by_role('button', name='เริ่มใช้งาน').click()
+        page.wait_for_timeout(300)
+
+
 def serve_dist(route):
     path = route.request.url.split('/fb-group-market/', 1)[1].split('#')[0].split('?')[0] or 'index.html'
     f = DIST / path
@@ -86,6 +96,11 @@ with sync_playwright() as p:
     app = ctx.new_page()
     app.goto(APP + '#/?g=mockgroup')
     app.wait_for_timeout(1500)
+    check('เปิดเว็บครั้งแรกมีหน้าต่างข้อตกลง', app.locator('dialog[open][aria-labelledby="terms-title"]').count() == 1)
+    accept_terms(app)
+    app.reload()
+    app.wait_for_timeout(1200)
+    check('ยอมรับแล้วไม่ขึ้นอีก', app.locator('dialog[open][aria-labelledby="terms-title"]').count() == 0)
     summary = app.locator('h1 + p').inner_text()
     check('ไม่มีข้อมูลตัวอย่างปน (เข้าเว็บครั้งแรกผ่านหน้ารับข้อมูล)', 'จาก 1 กลุ่ม' in summary and 'ตัวอย่าง' not in summary, summary)
     check('หน้าสินค้ามี 22 รายการของกลุ่มนี้', app.locator('p[aria-live]').inner_text().startswith('22'), app.locator('p[aria-live]').inner_text())
@@ -229,6 +244,7 @@ with sync_playwright() as p:
     app.wait_for_selector('text=นำเข้าข้อมูลแล้ว', timeout=20_000)
     app.goto(APP + '#/?g=big')
     app.wait_for_timeout(1200)
+    accept_terms(app)
     jumps = []
     for step in range(1, 30):
         target = step * 600

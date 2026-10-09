@@ -13,7 +13,7 @@ const str = (v: unknown, max: number): string | undefined =>
   typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined;
 
 /** ลิงก์โพสต์ต้องเป็น https://www.facebook.com/... เท่านั้น ไม่อย่างนั้นสร้างใหม่จาก id */
-function safePostUrl(url: unknown, groupId: string, postId: string): string {
+export function safePostUrl(url: unknown, groupId: string, postId: string): string {
   if (typeof url === 'string') {
     try {
       const u = new URL(url);

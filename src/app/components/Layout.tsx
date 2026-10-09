@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { th } from '../i18n/th';
 import { ROUTES } from '../routes';
 import ThemeToggle from './ThemeToggle';
+import TermsGate from '../features/guide/TermsGate';
 import { BookIcon, BookmarkIcon, GearIcon, TagIcon, UsersIcon } from './Icons';
 
 const NAV = [
@@ -71,6 +72,8 @@ export default function Layout() {
       <footer className="hidden border-t border-line py-5 text-center text-xs text-muted md:block">
         {th.app.disclaimer}
       </footer>
+
+      <TermsGate />
 
       {/* แถบเมนูล่างสำหรับมือถือ */}
       <nav
