@@ -1,0 +1,158 @@
+<!doctype html>
+<!--
+  หน้ากลุ่ม Facebook จำลอง สำหรับทดสอบ bookmarklet (ข้อมูลแต่งขึ้นทั้งหมด)
+  เลียนแบบพฤติกรรมที่ทำให้การดึงข้อมูลยาก:
+  - role="feed" / role="article" / data-ad-preview="message" แบบหน้า Facebook จริง
+  - ลิงก์เวลาโพสต์เป็น href="#" จนกว่าจะเอาเมาส์ชี้ (Facebook ใส่ URL ตอน hover)
+  - ข้อความยาวถูกตัด มีปุ่ม "ดูเพิ่มเติม"
+  - โหลดโพสต์เพิ่มเมื่อเลื่อนใกล้ท้ายหน้า และลบโพสต์ที่เลื่อนผ่านไปแล้วออกจาก DOM
+  - comment ซ้อนอยู่ใน article ของโพสต์ (มีราคาหลอก)
+  - โพสต์ปักหมุดเก่าอยู่บนสุด, โพสต์ขายแบบมีฟอร์ม (ราคาแยก), ลิงก์แบบ story_fbid, โพสต์ซ้ำ
+-->
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <title>ตลาดมือสองทดสอบ | Facebook</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 0; background: #f0f2f5; }
+      header { position: sticky; top: 0; background: #fff; padding: 12px 20px; border-bottom: 1px solid #ddd; z-index: 5; }
+      main { max-width: 640px; margin: 0 auto; padding: 16px; }
+      [role='article'] { background: #fff; border-radius: 8px; padding: 12px 16px; margin: 0 0 16px; min-height: 260px; }
+      [role='article'] [role='article'] { background: #f0f2f5; min-height: 0; margin: 8px 0 0; }
+      .meta { color: #65676b; font-size: 13px; }
+      .spacer { margin: 0 0 16px; }
+      .sale { font-weight: 700; font-size: 18px; }
+      .sale-title { font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <header><h1>ตลาดมือสองทดสอบ</h1></header>
+    <main role="main">
+      <div role="feed" id="feed"></div>
+      <div id="loading" style="text-align:center;color:#999;padding:20px">กำลังโหลด…</div>
+    </main>
+    <script>
+      const GROUP = 'mockgroup';
+      const ITEMS = [
+        ['iPhone 13 128GB สีมิดไนท์', 'ราคา 12,900.-\nแบต 86% ไม่เคยซ่อม'],
+        ['โต๊ะทำงานไม้สัก', 'ราคา1200บาท\nรับเองแถวลาดพร้าว'],
+        ['Samsung Galaxy S23 Ultra', '฿24,500\nประกันเหลือ 4 เดือน'],
+        ['AirPods Pro 2', '5.5k ซื้อมา 3 เดือน'],
+        ['เก้าอี้เกมมิ่ง', 'ราคา : 1,890 สภาพ 90%'],
+        ['Nintendo Switch OLED', 'ขาย 7,200 ครบกล่อง'],
+        ['Apple Watch Series 8 45mm', '8,900-9,500 ราคาขึ้นกับสาย'],
+        ['OPPO Reno 10', 'ราคาคุยกันได้ ทักแชท'],
+        ['ตู้เย็น 2 ประตู 12 คิว', 'ราคา 5,900 โทร 081-234-5678'],
+        ['Sony A7 III body ชัต 18k', '฿34,000 เซนเซอร์สะอาด'],
+      ];
+      const LONG_TAIL =
+        '\nรายละเอียดเพิ่มเติม: ใช้งานปกติทุกฟังก์ชัน ไม่เคยตก ไม่เคยเข้าน้ำ มีรอยขนแมวตามขอบเล็กน้อย ' +
+        'นัดรับได้แถวรถไฟฟ้า หรือส่งพัสดุได้ทั่วประเทศ ค่าส่งตามจริง สนใจทักแชทได้ตลอดครับ';
+
+      const TOTAL = 60;
+      const posts = [];
+      // โพสต์ปักหมุด (เก่า) อยู่บนสุด
+      posts.push({ id: '100000', title: 'กฎของกลุ่ม อ่านก่อนโพสต์', body: 'ห้ามขายของผิดกฎหมาย', time: '3 มีนาคม 2567', pinned: true });
+      for (let i = 0; i < TOTAL; i++) {
+        const [title, body] = ITEMS[i % ITEMS.length];
+        const hours = i * 2 + 1;
+        const time = hours < 24 ? `${hours} ชม.` : `${Math.floor(hours / 24)} วัน`;
+        posts.push({
+          id: String(200000 + i),
+          title: `${title} #${i + 1}`,
+          body,
+          time,
+          long: i % 4 === 1,
+          sale: i % 7 === 3,
+          story: i === 5,
+          directHref: i === 2,
+          comment: i % 3 === 0,
+        });
+      }
+
+      const feed = document.getElementById('feed');
+      let rendered = 0;
+      let removedHeight = 0;
+      const spacer = document.createElement('div');
+      spacer.className = 'spacer';
+      feed.before(spacer);
+
+      function postUrl(p) {
+        return p.story
+          ? `https://www.facebook.com/permalink.php?story_fbid=${p.id}&id=${GROUP}`
+          : `https://www.facebook.com/groups/${GROUP}/posts/${p.id}/?__cft__[0]=AZX&__tn__=%2CO%2CP-R`;
+      }
+
+      function render(p) {
+        const a = document.createElement('div');
+        a.setAttribute('role', 'article');
+        a.setAttribute('aria-posinset', String(rendered + 1));
+        const full = p.title + '\n' + p.body + (p.long ? LONG_TAIL : '');
+        const shown = p.long ? full.slice(0, 60) + '…' : full;
+        a.innerHTML = `
+          <h3><a href="https://www.facebook.com/profile/${p.id}">ผู้ขาย ${p.id}</a></h3>
+          <div class="meta"><a role="link" aria-label="${p.time}" href="${p.directHref ? postUrl(p) : '#'}">${p.time}</a></div>
+          ${p.sale ? `<div class="sale-title"><span>${p.title}</span></div><div class="sale"><span>฿3,333</span></div>` : ''}
+          <div data-ad-preview="message"><div dir="auto" class="msg"></div></div>
+          ${p.comment ? `<div role="article"><span dir="auto">คอมเมนต์: ลด 100 ได้ไหม ราคา 99 บาท</span></div>` : ''}
+        `;
+        const msg = a.querySelector('.msg');
+        msg.innerText = shown;
+        if (p.long) {
+          const more = document.createElement('div');
+          more.setAttribute('role', 'button');
+          more.textContent = 'ดูเพิ่มเติม';
+          more.addEventListener('click', () => {
+            msg.innerText = full;
+            more.remove();
+          });
+          msg.after(more);
+        }
+        const link = a.querySelector('.meta a');
+        // Facebook ใส่ลิงก์จริงตอน hover
+        link.addEventListener('mouseover', () => link.setAttribute('href', postUrl(p)));
+        if (p.pinned) a.querySelector('.meta').append(' · ปักหมุด');
+        feed.append(a);
+        rendered++;
+      }
+
+      function loadMore(n) {
+        const end = Math.min(posts.length, rendered + n);
+        for (let i = rendered; i < end; ) render(posts[i++]);
+        // โพสต์ซ้ำ (Facebook แสดงโพสต์เดิมซ้ำบางครั้ง)
+        if (rendered === 21) render({ ...posts[10] }) || rendered--;
+        if (rendered >= posts.length) document.getElementById('loading').textContent = '';
+        recycle();
+      }
+
+      // ลบโพสต์ที่เลื่อนผ่านไปไกลแล้ว (เหมือน Facebook) แทนด้วยความสูงเท่าเดิม
+      function recycle() {
+        const arts = [...feed.children];
+        while (arts.length > 15) {
+          const first = arts.shift();
+          const r = first.getBoundingClientRect();
+          if (r.bottom > -800) break;
+          removedHeight += first.offsetHeight + 16;
+          spacer.style.height = removedHeight + 'px';
+          first.remove();
+        }
+      }
+
+      let loading = false;
+      window.addEventListener('scroll', () => {
+        recycle();
+        if (loading || rendered >= posts.length) return;
+        if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 600) {
+          loading = true;
+          setTimeout(() => {
+            loadMore(5);
+            loading = false;
+          }, 300);
+        }
+      });
+
+      loadMore(6);
+      window.__MOCK__ = { posts };
+    </script>
+  </body>
+</html>

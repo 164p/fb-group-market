@@ -1,0 +1,34 @@
+<!doctype html>
+<!-- หน้ารับข้อมูลจำลอง (ใช้ทดสอบ bookmarklet ก่อนมีหน้า #/receive จริงในเฟส 7) -->
+<html lang="th">
+  <head><meta charset="utf-8" /><title>stub receiver</title></head>
+  <body>
+    <pre id="log"></pre>
+    <script>
+      const cfg = JSON.parse(localStorage.getItem('stubcfg') || '{}');
+      const state = { hello: null, batches: [], done: null, posts: [] };
+      window.__received = state;
+      const log = (s) => (document.getElementById('log').textContent += s + '\n');
+      window.addEventListener('message', (e) => {
+        if (e.origin !== 'https://www.facebook.com') return log('ignored origin ' + e.origin);
+        if (cfg.silent) return;
+        const m = e.data;
+        const reply = (extra) => e.source.postMessage({ v: 1, type: 'ACK', sessionId: m.sessionId, ...extra }, e.origin);
+        if (m.type === 'HELLO') {
+          if (!state.hello) log('HELLO ' + m.group.id + ' ' + m.group.name);
+          state.hello = m;
+          reply({ seq: 0, knownIds: cfg.knownIds || [], storeAuthorName: !!cfg.storeAuthorName, minBookmarkletVersion: cfg.minVersion || 0 });
+        } else if (m.type === 'BATCH') {
+          if (!state.batches.some((b) => b.seq === m.seq)) {
+            state.batches.push(m);
+            state.posts.push(...m.posts);
+          }
+          reply({ seq: m.seq });
+        } else if (m.type === 'DONE') {
+          state.done = m;
+          reply({ seq: state.batches.length + 1 });
+        }
+      });
+    </script>
+  </body>
+</html>

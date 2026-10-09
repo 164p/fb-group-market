@@ -3,3 +3,6 @@ dist
 *.local
 .DS_Store
 *.tsbuildinfo
+# สร้างอัตโนมัติจาก scripts/build-bookmarklet.mjs
+.bookmarklet
+src/app/generated

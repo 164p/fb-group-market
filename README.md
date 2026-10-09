@@ -17,6 +17,20 @@ npm test           # unit tests (Vitest + fake-indexeddb)
 npm run build      # ผลลัพธ์ใน dist/
 ```
 
+## ทดสอบ bookmarklet
+
+`e2e/` มีหน้ากลุ่ม Facebook จำลองที่เลียนแบบพฤติกรรมยากๆ ของหน้าจริง (ลิงก์โพสต์ที่ใส่ตอน hover, "ดูเพิ่มเติม",
+โหลดเพิ่มเมื่อเลื่อน, ลบโพสต์เก่าออกจาก DOM, comment ซ้อน) และหน้ารับข้อมูลจำลอง
+การทดสอบดักทุก request ไปที่ไฟล์เหล่านี้ จึงไม่ติดต่อ Facebook จริง
+
+```bash
+npm run build:bm
+pip install playwright && python -m playwright install chromium
+python3 e2e/bookmarklet_e2e.py
+```
+
+เมื่อ Facebook เปลี่ยนหน้าตา: แก้ `src/bookmarklet/dom/selectors.ts` เป็นหลัก แล้วปรับหน้าจำลองให้ตรงกับโครงสร้างใหม่
+
 ## Deploy
 
 push ไปที่ branch `main` แล้ว GitHub Actions จะ build และ deploy ให้อัตโนมัติ
@@ -33,7 +47,7 @@ push ไปที่ branch `main` แล้ว GitHub Actions จะ build แ�
 ```
 src/
 ├─ shared/        # types, protocol, config, parser (ใช้ร่วมกับ bookmarklet)
-├─ bookmarklet/   # (เฟส 6)
+├─ bookmarklet/   # ปุ่มดึงสินค้า: dom/ (อ่านหน้า Facebook), scroller, transport, panel
 └─ app/
    ├─ components/ # Layout, ปุ่ม, ไอคอน ฯลฯ
    ├─ features/   # listings, groups, setup, guide, receive, settings
@@ -50,6 +64,6 @@ src/
 | 3 | หน้ารายการสินค้า | เสร็จ |
 | 4 | หน้าจัดการกลุ่ม | เสร็จ |
 | 5 | Parser + unit tests | เสร็จ |
-| 6 | Bookmarklet | |
+| 6 | Bookmarklet | เสร็จ (รอทดสอบกับกลุ่มจริง) |
 | 7 | ช่องทางส่งข้อมูล + หน้า Receive | |
 | 8 | Guide, Settings, ทดสอบรวม | |
