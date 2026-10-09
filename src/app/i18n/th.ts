@@ -19,6 +19,8 @@ export const th = {
     system: 'ตามระบบ',
   },
   listings: {
+    summary: (listings: number, groups: number) => `${listings.toLocaleString('th-TH')} รายการ จาก ${groups} กลุ่ม`,
+    sampleBadge: 'ข้อมูลตัวอย่าง',
     title: 'รายการสินค้า',
     subtitle: 'ค้นหาและกรองสินค้าจากทุกกลุ่มที่คุณดึงข้อมูลไว้',
     emptyTitle: 'ยังไม่มีสินค้า',
@@ -54,6 +56,20 @@ export const th = {
   settings: {
     title: 'ตั้งค่า',
     subtitle: 'ค่าเริ่มต้นการดึงข้อมูล การสำรองข้อมูล และความเป็นส่วนตัว',
+    data: {
+      title: 'ข้อมูลในเบราว์เซอร์นี้',
+      body: 'ข้อมูลทั้งหมดเก็บในเบราว์เซอร์ที่คุณใช้อยู่เท่านั้น',
+      listings: 'สินค้า',
+      groups: 'กลุ่ม',
+      sampleNote: (n: number) => `มีกลุ่มตัวอย่าง ${n} กลุ่ม ไว้ให้ลองค้นหาและกรอง`,
+      reseed: 'โหลดข้อมูลตัวอย่างใหม่',
+      removeSample: 'ลบข้อมูลตัวอย่าง',
+      clearAll: 'ล้างข้อมูลทั้งหมด',
+      confirmClearAll: 'ลบสินค้า กลุ่ม และประวัติการดึงทั้งหมดในเบราว์เซอร์นี้? ย้อนกลับไม่ได้',
+      doneReseed: 'โหลดข้อมูลตัวอย่างแล้ว',
+      doneRemoveSample: 'ลบข้อมูลตัวอย่างแล้ว',
+      doneClearAll: 'ล้างข้อมูลทั้งหมดแล้ว',
+    },
   },
   notFound: {
     title: 'ไม่พบหน้านี้',

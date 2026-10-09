@@ -13,6 +13,7 @@
 npm install
 npm run dev        # http://localhost:5173
 npm run typecheck
+npm test           # unit tests (Vitest + fake-indexeddb)
 npm run build      # ผลลัพธ์ใน dist/
 ```
 
@@ -45,7 +46,7 @@ src/
 | เฟส | งาน | สถานะ |
 | --- | --- | --- |
 | 1 | Project setup + deploy | เสร็จ |
-| 2 | Data layer + ข้อมูลตัวอย่าง | |
+| 2 | Data layer + ข้อมูลตัวอย่าง | เสร็จ |
 | 3 | หน้ารายการสินค้า | |
 | 4 | หน้าจัดการกลุ่ม | |
 | 5 | Parser + unit tests | |

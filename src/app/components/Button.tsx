@@ -1,12 +1,13 @@
 import { Link, type LinkProps } from 'react-router-dom';
 import type { ButtonHTMLAttributes } from 'react';
 
-type Variant = 'primary' | 'secondary' | 'ghost';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 const styles: Record<Variant, string> = {
   primary: 'bg-accent text-accent-ink hover:brightness-110',
   secondary: 'border border-line bg-surface text-ink hover:bg-sunken',
   ghost: 'text-muted hover:bg-sunken hover:text-ink',
+  danger: 'text-accent hover:bg-accent-soft',
 };
 
 const shape =

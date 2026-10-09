@@ -12,6 +12,8 @@ export interface Group {
   lastSyncedAt?: number;
   /** cache สำหรับหน้า Groups */
   listingCount: number;
+  /** กลุ่มข้อมูลตัวอย่าง (ลบได้ทั้งชุดจากหน้าตั้งค่า) */
+  isSample?: boolean;
 }
 
 export type PriceType = 'fixed' | 'range' | 'negotiable' | 'unknown';
