@@ -3,7 +3,7 @@ import { APP_URL, BOOKMARKLET_VERSION, DEFAULT_SETTINGS } from '../shared/config
 import type { StopReason } from '../shared/types';
 import { readGroup } from './dom/extract';
 import { Panel, type Prefs } from './panel';
-import { collect } from './scroller';
+import { collect, newDiagnostics } from './scroller';
 import { Bridge, copyText } from './transport';
 import { directKnownToFail, loadSentIds, rememberDirect, saveSentIds } from './memory';
 import { encodePayload, MAX_URL_PAYLOAD } from '../shared/transfer';
@@ -88,6 +88,12 @@ function main() {
     });
   };
 
+  let report = '';
+  panel.onCopyReport = async () => {
+    const ok = await copyText(report);
+    alert(ok ? 'คัดลอกรายงานแล้ว ส่งให้ผู้พัฒนาได้เลย (ไม่มีข้อความโพสต์ในรายงาน)' : 'คัดลอกไม่สำเร็จ');
+  };
+
   let handoffUrl = '';
   panel.onHandoff = () => {
     // เปิดแท็บใหม่ในขณะที่ผู้ใช้คลิก (เบราว์เซอร์อนุญาต) พร้อมข้อมูลทั้งรอบในลิงก์
@@ -130,6 +136,8 @@ function main() {
     let stopReason: StopReason = 'error';
     let scanned = 0;
     let collected = 0;
+    const diag = newDiagnostics();
+    const startedAt = Date.now();
     try {
       const res = await collect(
         {
@@ -150,6 +158,7 @@ function main() {
           },
           shouldStop: () => state.stop,
         },
+        diag,
       );
       stopReason = res.stopReason;
       scanned = res.scanned;
@@ -158,6 +167,30 @@ function main() {
     }
     state.running = false;
     saveSentIds(group!.id, b.all.map((p) => p.postId));
+
+    // รายงานวิเคราะห์ (ไม่มีข้อความโพสต์) สำหรับส่งให้ผู้พัฒนาเมื่อได้ผลผิดปกติ
+    report = JSON.stringify(
+      {
+        report: 'fbgm-diagnostics',
+        bookmarkletVersion: BOOKMARKLET_VERSION,
+        at: new Date().toISOString(),
+        seconds: Math.round((Date.now() - startedAt) / 1000),
+        prefs,
+        stopReason,
+        scanned,
+        collected,
+        direct: b.direct,
+        diag,
+        viewport: [window.innerWidth, window.innerHeight],
+        scrollHeight: document.documentElement.scrollHeight,
+        hidden: document.visibilityState,
+        ua: navigator.userAgent,
+        lang: document.documentElement.lang,
+      },
+      null,
+      1,
+    );
+    panel.reportAvailable = true;
 
     const delivered = await b.done(stopReason, scanned);
     if (delivered) {
@@ -190,7 +223,7 @@ function main() {
       return;
     }
     if (fitsUrl) {
-      panel.render({ kind: 'handoff', collected });
+      panel.render({ kind: 'handoff', collected, note: `หยุดเพราะ${STOP_TEXT[stopReason]} กดปุ่มเพื่อเปิดเว็บพร้อมข้อมูล` });
       return;
     }
     panel.render({

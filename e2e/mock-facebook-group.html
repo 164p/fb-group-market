@@ -51,8 +51,10 @@
 
       const TOTAL = 60;
       const posts = [];
-      // โพสต์ปักหมุด (เก่า) อยู่บนสุด
+      // โพสต์แนะนำ/ปักหมุด (เก่า) 3 โพสต์อยู่บนสุด — ต้องไม่ทำให้ "ย้อนหลัง N วัน" หยุดทันที
       posts.push({ id: '100000', title: 'กฎของกลุ่ม อ่านก่อนโพสต์', body: 'ห้ามขายของผิดกฎหมาย', time: '3 มีนาคม 2567', pinned: true });
+      posts.push({ id: '100001', title: 'วิธีสังเกตมิจฉาชีพ', body: 'อย่าโอนก่อนเห็นของ', time: '12 สิงหาคม', pinned: true });
+      posts.push({ id: '100002', title: 'ร้านแนะนำของแอดมิน', body: 'ลิงก์รวมร้านค้า', time: '20 กันยายน', pinned: true });
       for (let i = 0; i < TOTAL; i++) {
         let [title, body] = ITEMS[i % ITEMS.length];
         // โพสต์ขายหลายรายการ (ราคาอยู่บรรทัดถัดไป / บรรทัดเดียวกัน)
@@ -85,10 +87,31 @@
           : `https://www.facebook.com/groups/${GROUP}/posts/${p.id}/?__cft__[0]=AZX&__tn__=%2CO%2CP-R`;
       }
 
+      // Facebook ใส่เนื้อหาโพสต์เมื่อเลื่อนเข้าใกล้จอเท่านั้น ก่อนหน้านั้นเป็นกล่องว่าง
+      const lazy = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (!e.isIntersecting || !e.target.__fill) continue;
+            const fill = e.target.__fill;
+            e.target.__fill = null;
+            lazy.unobserve(e.target);
+            setTimeout(fill, 150);
+          }
+        },
+        { rootMargin: '100px 0px' },
+      );
+
       function render(p) {
         const a = document.createElement('div');
         a.setAttribute('role', 'article');
         a.setAttribute('aria-posinset', String(rendered + 1));
+        a.__fill = () => fillPost(a, p);
+        lazy.observe(a);
+        feed.append(a);
+        rendered++;
+      }
+
+      function fillPost(a, p) {
         const full = p.title + '\n' + p.body + (p.long ? LONG_TAIL : '');
         const shown = p.long ? full.slice(0, 60) + '…' : full;
         a.innerHTML = `
@@ -114,8 +137,8 @@
         // Facebook ใส่ลิงก์จริงตอน hover
         link.addEventListener('mouseover', () => link.setAttribute('href', postUrl(p)));
         if (p.pinned) a.querySelector('.meta').append(' · ปักหมุด');
-        feed.append(a);
-        rendered++;
+        // ลิงก์ในส่วนหัวที่ข้อความคล้ายวันที่ ต้องไม่ถูกใช้เป็นเวลาโพสต์
+        a.querySelector('.meta').insertAdjacentHTML('beforeend', ' <a role="link" aria-label="Mario 10" href="#">หมวด</a>');
       }
 
       function loadMore(n) {

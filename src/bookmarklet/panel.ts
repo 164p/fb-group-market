@@ -11,7 +11,7 @@ export type PanelState =
   | { kind: 'setup' }
   | { kind: 'connecting' }
   | { kind: 'running'; collected: number; scanned: number; oldest?: string; direct: boolean }
-  | { kind: 'handoff'; collected: number }
+  | { kind: 'handoff'; collected: number; note?: string }
   | { kind: 'done'; title: string; body: string; fallback?: boolean; receiveUrl?: string }
   | { kind: 'error'; title: string; body: string; link?: { href: string; label: string } };
 
@@ -70,6 +70,9 @@ export class Panel {
   onClose: () => void = () => {};
   onCopy: () => void = () => {};
   onHandoff: () => void = () => {};
+  onCopyReport: () => void = () => {};
+  /** มีรายงานวิเคราะห์ให้คัดลอก (หลังดึงเสร็จ) */
+  reportAvailable = false;
 
   constructor(private groupName: string, private prefs: Prefs) {
     this.host.id = 'fbgm-panel';
@@ -89,7 +92,13 @@ export class Panel {
   }
 
   render(s: PanelState) {
-    this.body.replaceChildren(h('p', { class: 'g', title: this.groupName }, this.groupName || 'กลุ่มนี้'), ...this.view(s));
+    const nodes = this.view(s);
+    if (this.reportAvailable && (s.kind === 'handoff' || s.kind === 'done' || s.kind === 'error')) {
+      const rep = h('button', { class: 'link' }, 'คัดลอกรายงานวิเคราะห์');
+      rep.addEventListener('click', () => this.onCopyReport());
+      nodes.push(h('p', { class: 'muted', style: 'margin-top:12px;text-align:center;font-size:12px' }, 'ได้โพสต์น้อยหรือผิดปกติ? ', rep));
+    }
+    this.body.replaceChildren(h('p', { class: 'g', title: this.groupName }, this.groupName || 'กลุ่มนี้'), ...nodes);
   }
 
   private view(s: PanelState): Node[] {
@@ -117,7 +126,7 @@ export class Panel {
         copy.addEventListener('click', () => this.onCopy());
         return [
           h('div', { class: 'row' }, h('span', { class: 'big' }, String(s.collected)), h('span', { class: 'muted' }, 'โพสต์พร้อมส่ง')),
-          h('p', { class: 'muted' }, 'กดปุ่มเพื่อเปิดเว็บในแท็บใหม่พร้อมข้อมูล'),
+          h('p', { class: 'muted' }, s.note ?? 'กดปุ่มเพื่อเปิดเว็บในแท็บใหม่พร้อมข้อมูล'),
           send,
           h('p', { style: 'margin-top:10px;text-align:center' }, copy),
         ];

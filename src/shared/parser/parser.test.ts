@@ -90,6 +90,16 @@ describe('parsePostedTime', () => {
     expect(parsePostedTime(text, now)).toBe(expected);
   });
 
+  it('does not mistake words for month names', () => {
+    expect(parsePostedTime('Mario 10', now)).toBeNull();
+    expect(parsePostedTime('Junior 5', now)).toBeNull();
+    expect(parsePostedTime('Decor 12', now)).toBeNull();
+    expect(parsePostedTime('3 มีดพับ', now)).toBeNull();
+    expect(parsePostedTime('12 ความคิดเห็น', now)).toBeNull();
+    expect(parsePostedTime('September 3', now)).toBe(at(2026, 8, 3));
+    expect(parsePostedTime('Sept 3', now)).toBe(at(2026, 8, 3));
+  });
+
   it('returns null for unknown text', () => {
     expect(parsePostedTime('', now)).toBeNull();
     expect(parsePostedTime('แก้ไขแล้ว', now)).toBeNull();

@@ -121,16 +121,34 @@ export function readStructuredPrice(post: HTMLElement): string | undefined {
   return undefined;
 }
 
-export function readTimeText(post: HTMLElement, linkAnchor?: HTMLAnchorElement): string | undefined {
-  const candidates = [linkAnchor, ...own<HTMLElement>(post, 'a[aria-label], abbr, a[role="link"]').slice(0, 15)];
-  for (const el of candidates) {
-    if (!el) continue;
+export interface TimeRead {
+  text?: string;
+  /** อ่านจากลิงก์โพสต์ (น่าเชื่อถือ) หรือจากลิงก์อื่นในส่วนหัว (อาจผิด) */
+  fromPermalink: boolean;
+}
+
+export function readTimeText(post: HTMLElement, linkAnchor?: HTMLAnchorElement): TimeRead {
+  const fromEl = (el: Element | undefined | null) => {
+    if (!el) return undefined;
     for (const t of [el.getAttribute('aria-label') ?? '', text(el)]) {
       const s = t.trim();
       if (s && s.length <= 40 && TIME_TEXT.test(s)) return s;
     }
+    return undefined;
+  };
+  const direct = fromEl(linkAnchor);
+  if (direct) return { text: direct, fromPermalink: true };
+  // ลิงก์โพสต์อื่นๆ ที่ชี้ไปโพสต์เดียวกัน (Facebook มักมีหลายลิงก์)
+  for (const a of own<HTMLAnchorElement>(post, 'a')) {
+    if (a === linkAnchor || !(POST_HREF.test(a.href) || STORY_HREF.test(a.href))) continue;
+    const t = fromEl(a);
+    if (t) return { text: t, fromPermalink: true };
   }
-  return undefined;
+  for (const el of own<HTMLElement>(post, 'a[aria-label], abbr, a[role="link"]').slice(0, 15)) {
+    const t = fromEl(el);
+    if (t) return { text: t, fromPermalink: false };
+  }
+  return { fromPermalink: false };
 }
 
 export function readAuthor(post: HTMLElement): string | undefined {
@@ -139,19 +157,28 @@ export function readAuthor(post: HTMLElement): string | undefined {
   return t && t.length <= 80 ? t : undefined;
 }
 
-/** อ่านโพสต์ 1 ชิ้น — คืน null ถ้ายังหาลิงก์โพสต์ไม่เจอ (อาจต้องรอ hover อีกรอบ) */
-export function extractPost(post: HTMLElement, groupId: string, withAuthor: boolean): RawPost | null {
+export type ExtractResult =
+  | { ok: true; raw: RawPost; timeFromPermalink: boolean }
+  | { ok: false; reason: 'noLink' | 'noText' };
+
+/** อ่านโพสต์ 1 ชิ้น — ไม่สำเร็จถ้ายังหาลิงก์โพสต์/ข้อความไม่เจอ (อาจยังโหลดไม่เสร็จ ต้องลองใหม่) */
+export function extractPost(post: HTMLElement, groupId: string, withAuthor: boolean): ExtractResult {
   const link = readPostLink(post, groupId);
-  if (!link) return null;
+  if (!link) return { ok: false, reason: 'noLink' };
   const message = readMessage(post);
   const structuredPrice = readStructuredPrice(post);
-  if (!message && !structuredPrice) return null;
+  if (!message && !structuredPrice) return { ok: false, reason: 'noText' };
+  const time = readTimeText(post, link.anchor);
   return {
-    postId: link.postId,
-    postUrl: link.postUrl,
-    text: message,
-    structuredPrice,
-    timeText: readTimeText(post, link.anchor),
-    authorName: withAuthor ? readAuthor(post) : undefined,
+    ok: true,
+    timeFromPermalink: time.fromPermalink,
+    raw: {
+      postId: link.postId,
+      postUrl: link.postUrl,
+      text: message,
+      structuredPrice,
+      timeText: time.text,
+      authorName: withAuthor ? readAuthor(post) : undefined,
+    },
   };
 }

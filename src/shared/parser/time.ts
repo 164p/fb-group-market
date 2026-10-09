@@ -76,7 +76,8 @@ export function parsePostedTime(text: string | undefined | null, now: number): n
   let year: number | undefined;
   const th = s.match(/^(\d{1,2})\s*([ก-๙.]+)\s*(\d{4})?/);
   if (th) {
-    const mm = TH_MONTHS.find(([re]) => re.test(th[2]));
+    // คำทั้งคำต้องเป็นชื่อเดือน (กัน "3 มีดพับ" ถูกอ่านเป็นมีนาคม)
+    const mm = TH_MONTHS.find(([re]) => new RegExp(`${re.source}$`).test(th[2]));
     if (mm) {
       day = Number(th[1]);
       month = mm[1];
@@ -89,7 +90,9 @@ export function parsePostedTime(text: string | undefined | null, now: number): n
     const en2 = s.match(/^(\d{1,2}) ([a-z]{3,9})(?: (\d{4}))?/);
     const pick = en1 ? { mon: en1[1], d: en1[2], y: en1[3] } : en2 ? { mon: en2[2], d: en2[1], y: en2[3] } : null;
     if (pick) {
-      const mi = EN_MONTHS.indexOf(pick.mon.slice(0, 3));
+      // ต้องเป็นชื่อเดือนจริง (ตัวย่อ 3 ตัว หรือชื่อเต็ม) — กัน "Mario 10" ถูกอ่านเป็น March 10
+      const full = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+      const mi = pick.mon.length === 3 || (pick.mon === 'sept') ? EN_MONTHS.indexOf(pick.mon.slice(0, 3)) : full.indexOf(pick.mon);
       if (mi >= 0) {
         day = Number(pick.d);
         month = mi;

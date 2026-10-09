@@ -108,16 +108,18 @@ with sync_playwright() as p:
     ids = [x['postId'] for x in rec['posts']]
     times = [x['timeText'] for x in rec['posts']]
     check('หยุดด้วย maxAge', rec['done']['stopReason'] == 'maxAge')
-    check('โพสต์ปักหมุดเก่าไม่ทำให้หยุดก่อน', len(ids) >= 10, str(len(ids)))
+    check('โพสต์แนะนำเก่า 3 โพสต์บนสุดไม่ทำให้หยุดก่อน (ได้ ≥ 20)', len(ids) >= 20, str(len(ids)))
+    check('ไม่ส่งโพสต์แนะนำที่เก่ากว่ากำหนด', not any(i.startswith('1000') for i in ids), str(ids[:4]))
+    check('ไม่ใช้ลิงก์ "Mario 10" เป็นเวลาโพสต์', all(t != 'Mario 10' for t in times))
     # Facebook แสดง "1 วัน" สำหรับ 24–47 ชม. จึงนับว่าอยู่ในช่วง 1 วัน ส่วน "2 วัน" ขึ้นไปต้องไม่ถูกส่ง
     check('ไม่ส่งโพสต์ที่เก่ากว่ากำหนด', all(not any(f'{d} วัน' in t for d in range(2, 40)) and '2567' not in t for t in times), str(times[-3:]))
     b.close()
 
     # 4) จนหมดกลุ่ม
-    b, page, popup, text, rec, errs = run(p, 'ดึงจนหมด (60 + ปักหมุด)', {}, set_mode('maxPosts', 500), timeout_ms=240_000)
+    b, page, popup, text, rec, errs = run(p, 'ดึงจนหมด (60 + ปักหมุด 3)', {}, set_mode('maxPosts', 500), timeout_ms=240_000)
     ids = [x['postId'] for x in rec['posts']]
     check('หยุดด้วย noMore', rec['done']['stopReason'] == 'noMore', rec['done']['stopReason'])
-    check('ได้ครบ 61 โพสต์ ไม่ซ้ำ แม้โพสต์เก่าถูกลบออกจาก DOM', len(ids) == 61 and len(set(ids)) == 61, str(len(ids)))
+    check('ได้ครบ 63 โพสต์ ไม่ซ้ำ แม้โพสต์เก่าถูกลบออกจาก DOM และเนื้อหาโหลดเมื่อใกล้จอ', len(ids) == 63 and len(set(ids)) == 63, str(len(ids)))
     check('ส่งเป็นชุดละไม่เกิน 10', all(len(bt['posts']) <= 10 for bt in rec['batches']))
     b.close()
 
