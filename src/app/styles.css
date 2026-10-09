@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+
+/* ธีมมืดควบคุมด้วย class .dark บน <html> (ตั้งจาก ThemeToggle / สคริปต์ใน index.html) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* โทนกระดาษอุ่น + ส้มป้ายราคา */
+  --color-paper: #f7f4ee;
+  --color-surface: #fffdf9;
+  --color-sunken: #efeae0;
+  --color-ink: #1f1b14;
+  --color-muted: #6b6356;
+  --color-line: #e2dbcd;
+  --color-accent: #c2410c;
+  --color-accent-ink: #fff7ed;
+  --color-accent-soft: #fde7d6;
+  --color-good: #15803d;
+  --color-warn: #b45309;
+}
+
+/* สีโหมดมืด: เขียนทับตัวแปรเดียวกัน ทุก utility เปลี่ยนตามอัตโนมัติ */
+.dark {
+  --color-paper: #16140f;
+  --color-surface: #1f1c16;
+  --color-sunken: #2a261e;
+  --color-ink: #f3eee4;
+  --color-muted: #a99f8e;
+  --color-line: #383227;
+  --color-accent: #f97316;
+  --color-accent-ink: #1f1206;
+  --color-accent-soft: #3b2212;
+  --color-good: #4ade80;
+  --color-warn: #fbbf24;
+}
+
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-paper text-ink font-sans antialiased;
+  line-height: 1.6;
+}
+
+/* วงโฟกัสชัดเจนสำหรับคีย์บอร์ด */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ภาษาไทยไม่มีช่องว่างระหว่างคำ ให้ตัดบรรทัดได้สวยขึ้น */
+.thai-wrap {
+  word-break: break-word;
+  line-break: auto;
+}

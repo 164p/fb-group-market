@@ -1,0 +1,35 @@
+// โปรโตคอลข้อความระหว่าง bookmarklet (บน facebook.com) กับเว็บแอป (หน้า #/receive)
+import { FACEBOOK_ORIGINS } from './config';
+import type { RawPost, StopReason } from './types';
+
+export const PROTOCOL_VERSION = 1 as const;
+
+export interface GroupInfo {
+  id: string;
+  name: string;
+  url: string;
+}
+
+export type BridgeMessage =
+  | { v: 1; type: 'HELLO'; sessionId: string; bookmarkletVersion: number; group: GroupInfo }
+  | { v: 1; type: 'BATCH'; sessionId: string; seq: number; posts: RawPost[] }
+  | { v: 1; type: 'DONE'; sessionId: string; stopReason: StopReason; scanned: number }
+  /** เว็บแอป → bookmarklet: ยืนยันรับชุดข้อมูล พร้อม post id ที่มีอยู่แล้ว (ใช้กับเงื่อนไข "เจอโพสต์ที่เคยดึงแล้ว") */
+  | { v: 1; type: 'ACK'; sessionId: string; seq: number; knownIds?: string[] };
+
+export type BridgeMessageType = BridgeMessage['type'];
+
+/** ตรวจว่าข้อความมาจาก Facebook และมีรูปแบบถูกต้อง */
+export function isTrustedFacebookOrigin(origin: string): boolean {
+  return (FACEBOOK_ORIGINS as readonly string[]).includes(origin);
+}
+
+export function isBridgeMessage(data: unknown): data is BridgeMessage {
+  if (!data || typeof data !== 'object') return false;
+  const m = data as Record<string, unknown>;
+  return (
+    m.v === PROTOCOL_VERSION &&
+    typeof m.sessionId === 'string' &&
+    (m.type === 'HELLO' || m.type === 'BATCH' || m.type === 'DONE' || m.type === 'ACK')
+  );
+}
