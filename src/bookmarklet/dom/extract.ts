@@ -85,6 +85,8 @@ export function readPostLink(post: HTMLElement, groupId: string): { postId: stri
 export function expandSeeMore(post: HTMLElement): number {
   let n = 0;
   for (const b of own<HTMLElement>(post, SEL.button)) {
+    // ปุ่มที่เป็นลิงก์จะเปิดหน้าโพสต์แทนการขยายข้อความ → ไม่กด
+    if (b.closest('a[href]') || b.hasAttribute('href')) continue;
     if (SEE_MORE.test(text(b))) {
       b.click();
       n++;

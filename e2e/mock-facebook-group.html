@@ -7,6 +7,9 @@
   - ข้อความยาวถูกตัด มีปุ่ม "ดูเพิ่มเติม"
   - โหลดโพสต์เพิ่มเมื่อเลื่อนใกล้ท้ายหน้า และลบโพสต์ที่เลื่อนผ่านไปแล้วออกจาก DOM
   - comment ซ้อนอยู่ใน article ของโพสต์ (มีราคาหลอก)
+  - ?inner=1 → เลื่อนกล่องด้านในแทนทั้งหน้าต่าง (หน้าต่างเลื่อนไม่ได้)
+  - กล่องแนะนำ (คลิป/กลุ่มแนะนำ) ที่เป็น role=article แต่ไม่ใช่โพสต์
+  - ปุ่ม "ดูเพิ่มเติม" ที่เป็นลิงก์ → เปิดหน้าต่างโพสต์ที่ล็อกการเลื่อน
   - โพสต์ปักหมุดเก่าอยู่บนสุด, โพสต์ขายแบบมีฟอร์ม (ราคาแยก), ลิงก์แบบ story_fbid, โพสต์ซ้ำ
 -->
 <html lang="th">
@@ -23,6 +26,12 @@
       .spacer { margin: 0 0 16px; }
       .sale { font-weight: 700; font-size: 18px; }
       .sale-title { font-weight: 600; }
+      body.inner { overflow: hidden; height: 100vh; }
+      body.inner main { height: calc(100vh - 70px); overflow-y: auto; max-width: none; }
+      body.inner #feed, body.inner #loading { max-width: 640px; margin: 0 auto; }
+      body.locked { overflow: hidden; }
+      .modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 50; display: grid; place-items: center; }
+      .modal > div { background: #fff; width: 600px; height: 80vh; border-radius: 8px; padding: 20px; }
     </style>
   </head>
   <body>
@@ -33,6 +42,10 @@
     </main>
     <script>
       const GROUP = 'mockgroup';
+      const INNER = /[?&]inner=1/.test(location.search);
+      if (INNER) document.body.classList.add('inner');
+      const scrollEl = INNER ? document.querySelector('main') : null;
+      window.__MOCK_STATS__ = { modalOpened: 0, unitsRendered: 0 };
       const ITEMS = [
         ['iPhone 13 128GB สีมิดไนท์', 'ราคา 12,900.-\nแบต 86% ไม่เคยซ่อม'],
         ['โต๊ะทำงานไม้สัก', 'ราคา1200บาท\nรับเองแถวลาดพร้าว'],
@@ -49,7 +62,7 @@
         '\nรายละเอียดเพิ่มเติม: ใช้งานปกติทุกฟังก์ชัน ไม่เคยตก ไม่เคยเข้าน้ำ มีรอยขนแมวตามขอบเล็กน้อย ' +
         'นัดรับได้แถวรถไฟฟ้า หรือส่งพัสดุได้ทั่วประเทศ ค่าส่งตามจริง สนใจทักแชทได้ตลอดครับ';
 
-      const TOTAL = 60;
+      const TOTAL = 60; // ไม่รวมโพสต์ปักหมุดและกล่องแนะนำ
       const posts = [];
       // โพสต์แนะนำ/ปักหมุด (เก่า) 3 โพสต์อยู่บนสุด — ต้องไม่ทำให้ "ย้อนหลัง N วัน" หยุดทันที
       posts.push({ id: '100000', title: 'กฎของกลุ่ม อ่านก่อนโพสต์', body: 'ห้ามขายของผิดกฎหมาย', time: '3 มีนาคม 2567', pinned: true });
@@ -71,7 +84,10 @@
           story: i === 5,
           directHref: i === 2,
           comment: i % 3 === 0,
+          trap: i % 9 === 4,
         });
+        // กล่องแนะนำที่ไม่ใช่โพสต์ แทรกทุก 8 โพสต์
+        if (i % 8 === 6) posts.push({ unit: true, id: 'unit' + i });
       }
 
       const feed = document.getElementById('feed');
@@ -88,6 +104,13 @@
       }
 
       // Facebook ใส่เนื้อหาโพสต์เมื่อเลื่อนเข้าใกล้จอเท่านั้น ก่อนหน้านั้นเป็นกล่องว่าง
+      document.addEventListener('click', (e) => {
+        if (e.target.closest('.modal [aria-label="ปิด"]')) {
+          document.querySelector('.modal').remove();
+          document.body.classList.remove('locked');
+          if (scrollEl) scrollEl.style.overflowY = '';
+        }
+      });
       const lazy = new IntersectionObserver(
         (entries) => {
           for (const e of entries) {
@@ -98,7 +121,7 @@
             setTimeout(fill, 150);
           }
         },
-        { rootMargin: '100px 0px' },
+        { root: scrollEl, rootMargin: '100px 0px' },
       );
 
       function render(p) {
@@ -112,6 +135,11 @@
       }
 
       function fillPost(a, p) {
+        if (p.unit) {
+          window.__MOCK__ && window.__MOCK_STATS__.unitsRendered++;
+          a.innerHTML = '<h3><span>คลิปวิดีโอแนะนำสำหรับคุณ</span></h3><div style="height:300px;background:#ddd"></div>';
+          return;
+        }
         const full = p.title + '\n' + p.body + (p.long ? LONG_TAIL : '');
         const shown = p.long ? full.slice(0, 60) + '…' : full;
         a.innerHTML = `
@@ -133,6 +161,17 @@
           });
           msg.after(more);
         }
+        if (p.trap) {
+          // "ดูเพิ่มเติม" แบบลิงก์: กดแล้วเปิดหน้าต่างโพสต์ซ้อนและล็อกการเลื่อน
+          msg.insertAdjacentHTML('afterend', `<a href="${postUrl(p)}"><div role="button">ดูเพิ่มเติม</div></a>`);
+          a.querySelector('a[href] [role=button]').addEventListener('click', (e) => {
+            e.preventDefault();
+            window.__MOCK_STATS__.modalOpened++;
+            document.body.classList.add('locked');
+            if (scrollEl) scrollEl.style.overflowY = 'hidden';
+            document.body.insertAdjacentHTML('beforeend', '<div class="modal" role="dialog" aria-modal="true"><div><div aria-label="ปิด" role="button">×</div>โพสต์</div></div>');
+          });
+        }
         const link = a.querySelector('.meta a');
         // Facebook ใส่ลิงก์จริงตอน hover
         link.addEventListener('mouseover', () => link.setAttribute('href', postUrl(p)));
@@ -145,7 +184,7 @@
         const end = Math.min(posts.length, rendered + n);
         for (let i = rendered; i < end; ) render(posts[i++]);
         // โพสต์ซ้ำ (Facebook แสดงโพสต์เดิมซ้ำบางครั้ง)
-        if (rendered === 21) render({ ...posts[10] }) || rendered--;
+        if (rendered === 21) render({ ...posts[8] }) || rendered--;
         if (rendered >= posts.length) document.getElementById('loading').textContent = '';
         recycle();
       }
@@ -164,10 +203,13 @@
       }
 
       let loading = false;
-      window.addEventListener('scroll', () => {
+      (scrollEl ?? window).addEventListener('scroll', () => {
         recycle();
         if (loading || rendered >= posts.length) return;
-        if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 600) {
+        const top = scrollEl ? scrollEl.scrollTop : window.scrollY;
+        const view = scrollEl ? scrollEl.clientHeight : window.innerHeight;
+        const height = scrollEl ? scrollEl.scrollHeight : document.documentElement.scrollHeight;
+        if (top + view >= height - 600) {
           loading = true;
           setTimeout(() => {
             loadMore(5);

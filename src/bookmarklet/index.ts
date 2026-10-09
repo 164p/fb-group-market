@@ -3,7 +3,7 @@ import { APP_URL, BOOKMARKLET_VERSION, DEFAULT_SETTINGS } from '../shared/config
 import type { StopReason } from '../shared/types';
 import { readGroup } from './dom/extract';
 import { Panel, type Prefs } from './panel';
-import { collect, newDiagnostics } from './scroller';
+import { collect, newDiagnostics, type Progress } from './scroller';
 import { Bridge, copyText } from './transport';
 import { directKnownToFail, loadSentIds, rememberDirect, saveSentIds } from './memory';
 import { encodePayload, MAX_URL_PAYLOAD } from '../shared/transfer';
@@ -137,6 +137,7 @@ function main() {
     let scanned = 0;
     let collected = 0;
     const diag = newDiagnostics();
+    let last: Progress = { scanned: 0, collected: 0 };
     const startedAt = Date.now();
     try {
       const res = await collect(
@@ -154,7 +155,11 @@ function main() {
           onBatch: (posts) => b.send(posts),
           onProgress: (p) => {
             collected = p.collected;
+            last = p;
             if (!state.stop) panel.render({ kind: 'running', collected: p.collected, scanned: p.scanned, oldest: p.oldestTimeText, direct: b.direct && !b.windowClosed });
+          },
+          onPaused: (paused) => {
+            if (!state.stop) panel.render({ kind: 'running', collected: last.collected, scanned: last.scanned, oldest: last.oldestTimeText, direct: b.direct && !b.windowClosed, paused });
           },
           shouldStop: () => state.stop,
         },
@@ -183,6 +188,9 @@ function main() {
         diag,
         viewport: [window.innerWidth, window.innerHeight],
         scrollHeight: document.documentElement.scrollHeight,
+        scrollY: Math.round(window.scrollY),
+        focused: document.hasFocus(),
+        modalOpen: !!document.querySelector('[role="dialog"][aria-modal="true"]'),
         hidden: document.visibilityState,
         ua: navigator.userAgent,
         lang: document.documentElement.lang,

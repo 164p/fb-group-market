@@ -9,6 +9,7 @@ import { parsePostedTime } from '../shared/parser/time';
 import type { RawPost, StopMode, StopReason } from '../shared/types';
 import { expandSeeMore, extractPost, findPosts, primeLinks } from './dom/extract';
 import { SEL } from './dom/selectors';
+import { newScrollStats, PageScroller, type ScrollStats } from './scrolling';
 
 export interface RunOptions {
   groupId: string;
@@ -46,12 +47,17 @@ export interface Diagnostics {
   rounds: number;
   sampleTimeTexts: string[];
   unparsedTimeTexts: string[];
+  /** จำนวนครั้งที่หยุดรอเพราะแท็บไม่ได้แสดงอยู่ */
+  hiddenPauses: number;
+  scroll: ScrollStats;
 }
 
 export interface RunHooks {
   onBatch: (posts: RawPost[]) => void | Promise<void>;
   onProgress: (p: Progress) => void;
   shouldStop: () => boolean;
+  /** แท็บถูกซ่อน (Facebook ไม่โหลดโพสต์ต่อ) → true, กลับมาแล้ว → false */
+  onPaused?: (paused: boolean) => void;
 }
 
 /** โพสต์ติดกันกี่ชิ้นที่เข้าเงื่อนไข ถึงจะหยุด */
@@ -66,6 +72,8 @@ const IDLE_ROUNDS = 5;
 const IDLE_MS = 8_000;
 /** อ่านโพสต์ที่อยู่ในจอไม่สำเร็จได้กี่ครั้งก่อนข้าม */
 const MAX_ATTEMPTS = 4;
+/** เลื่อนย้อนไปอ่านโพสต์ที่ผ่านไปแล้วได้กี่ชิ้นต่อรอบ */
+const MAX_RESCUE_PER_ROUND = 2;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const jitter = ([lo, hi]: readonly [number, number]) => lo + Math.random() * Math.max(0, hi - lo);
@@ -96,6 +104,8 @@ export function newDiagnostics(): Diagnostics {
     rounds: 0,
     sampleTimeTexts: [],
     unparsedTimeTexts: [],
+    hiddenPauses: 0,
+    scroll: newScrollStats(),
   };
 }
 
@@ -124,6 +134,7 @@ export async function collect(
   let oldestTimeText: string | undefined;
 
   diag.feedFound = !!document.querySelector(SEL.feed);
+  const scroller = new PageScroller(diag.scroll);
 
   const flush = async () => {
     if (!pending.length) return;
@@ -140,7 +151,18 @@ export async function collect(
 
   for (;;) {
     if (hooks.shouldStop()) return finish('user');
+    // แท็บถูกซ่อน (สลับแท็บ/ย่อหน้าต่าง) → Facebook หยุดโหลดโพสต์ จึงรอจนกลับมา
+    if (document.hidden) {
+      diag.hiddenPauses++;
+      hooks.onPaused?.(true);
+      while (document.hidden && !hooks.shouldStop()) await sleep(500);
+      hooks.onPaused?.(false);
+      idle = 0;
+      idleSince = Date.now();
+      continue;
+    }
     diag.rounds++;
+    let rescuedThisRound = 0;
 
     const all = findPosts().filter((p) => !done.has(p));
     for (const p of all) {
@@ -174,9 +196,10 @@ export async function collect(
             if (res.reason === 'noLink') diag.failedNoLink++;
             else diag.failedNoText++;
           }
-        } else if (pos === 'above' && !rescued.has(p)) {
+        } else if (pos === 'above' && !rescued.has(p) && rescuedThisRound < MAX_RESCUE_PER_ROUND && p.offsetHeight > 0) {
           // เลื่อนผ่านไปก่อนอ่านได้ → เลื่อนกลับไปให้โหลดแล้วลองอีกครั้ง (ครั้งเดียว)
           rescued.add(p);
+          rescuedThisRound++;
           diag.rescrolled++;
           p.scrollIntoView({ block: 'center' });
           primeLinks(p);
@@ -192,7 +215,7 @@ export async function collect(
           }
           res = again;
         } else if (pos === 'above') {
-          done.add(p);
+          if (rescued.has(p) || p.offsetHeight === 0) done.add(p);
           continue;
         }
         if (!res.ok) continue;
@@ -249,19 +272,19 @@ export async function collect(
       if (collected >= limit) return finish('maxPosts');
     }
 
-    // เลื่อนลงประมาณหนึ่งหน้าจอ ถ้าใกล้ท้ายหน้าให้ไปท้ายสุดเพื่อให้ Facebook โหลดเพิ่ม
-    const nearBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 400;
-
+    // กลับไปจุดไกลสุดเสมอ (หลังเลื่อนย้อนไปอ่าน) แล้วเลื่อนต่อ
+    scroller.restore();
+    const nearBottom = scroller.nearBottom();
     if (progressed || !nearBottom) {
       idle = 0;
       idleSince = Date.now();
     } else {
       idle++;
       if (idle >= IDLE_ROUNDS && Date.now() - idleSince >= IDLE_MS) return finish('noMore');
+      // อยู่ท้ายหน้าแต่ยังไม่มีโพสต์ใหม่ → ขยับขึ้นลงเพื่อกระตุ้นการโหลด
+      if (idle >= 2) await scroller.nudge();
     }
-
-    if (nearBottom) window.scrollTo({ top: document.documentElement.scrollHeight });
-    else window.scrollBy({ top: Math.round(window.innerHeight * (0.6 + Math.random() * 0.2)) });
+    await scroller.advance();
 
     await flush();
     await sleep(jitter(opts.delayMs));

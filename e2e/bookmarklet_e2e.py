@@ -29,7 +29,7 @@ def check(name, cond, detail=''):
         failures.append(name)
 
 
-def run(p, title, stub_cfg, start, timeout_ms=120_000, silent_wait=False):
+def run(p, title, stub_cfg, start, timeout_ms=120_000, silent_wait=False, url=GROUP_URL, during=None):
     print(f'\n▶ {title}')
     b = p.chromium.launch(args=['--no-proxy-server'])
     ctx = b.new_context(viewport={'width': 1280, 'height': 900})
@@ -42,7 +42,7 @@ def run(p, title, stub_cfg, start, timeout_ms=120_000, silent_wait=False):
     errors = []
     page = ctx.new_page()
     page.on('pageerror', lambda e: errors.append(str(e)))
-    page.goto(GROUP_URL)
+    page.goto(url)
     page.wait_for_timeout(500)
     page.evaluate("window.__FBGM_TEST__ = { delayMs: [60, 120] }")
     page.evaluate(BM)
@@ -51,6 +51,8 @@ def run(p, title, stub_cfg, start, timeout_ms=120_000, silent_wait=False):
     with ctx.expect_page() as popup_info:
         panel.locator('button.btn').click()
     popup = popup_info.value
+    if during:
+        during(page)
     # รอจนแผงแสดงผลสุดท้าย
     page.wait_for_function(
         "() => { const r = document.querySelector('#fbgm-panel')?.shadowRoot; return r && /ส่งแล้ว|เก็บได้|ไม่พบโพสต์|เวอร์ชันเก่า/.test(r.textContent) }",
@@ -121,6 +123,29 @@ with sync_playwright() as p:
     check('หยุดด้วย noMore', rec['done']['stopReason'] == 'noMore', rec['done']['stopReason'])
     check('ได้ครบ 63 โพสต์ ไม่ซ้ำ แม้โพสต์เก่าถูกลบออกจาก DOM และเนื้อหาโหลดเมื่อใกล้จอ', len(ids) == 63 and len(set(ids)) == 63, str(len(ids)))
     check('ส่งเป็นชุดละไม่เกิน 10', all(len(bt['posts']) <= 10 for bt in rec['batches']))
+    stats = page.evaluate('window.__MOCK_STATS__')
+    check('ไม่กด "ดูเพิ่มเติม" ที่เป็นลิงก์ (ไม่เปิดหน้าต่างโพสต์)', stats['modalOpened'] == 0, str(stats))
+    b.close()
+
+    # 4b) หน้าที่เลื่อนกล่องด้านใน + แท็บถูกซ่อนกลางทาง
+    paused_seen = []
+
+    def hide_then_show(page):
+        page.wait_for_function("() => /อ่านถึงโพสต์/.test(document.querySelector('#fbgm-panel').shadowRoot.textContent)", timeout=60_000)
+        page.evaluate("Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })")
+        page.wait_for_timeout(2500)
+        paused_seen.append('หยุดชั่วคราว' in page.evaluate("document.querySelector('#fbgm-panel').shadowRoot.textContent"))
+        before = page.evaluate("document.querySelector('main').scrollTop")
+        page.wait_for_timeout(2500)
+        paused_seen.append(before == page.evaluate("document.querySelector('main').scrollTop"))
+        page.evaluate("delete document.hidden")
+
+    b, page, popup, text, rec, errs = run(p, 'กล่องเลื่อนด้านใน (หน้าต่างเลื่อนไม่ได้) + สลับแท็บกลางทาง', {}, set_mode('maxPosts', 500),
+                                          timeout_ms=240_000, url=GROUP_URL + '&inner=1', during=hide_then_show)
+    ids = [x['postId'] for x in rec['posts']]
+    check('แผงบอกหยุดชั่วคราวเมื่อแท็บถูกซ่อน', paused_seen[:1] == [True], str(paused_seen))
+    check('ไม่เลื่อนต่อระหว่างแท็บถูกซ่อน', paused_seen[1:2] == [True], str(paused_seen))
+    check('เลื่อนกล่องด้านในจนได้ครบ 63 โพสต์', len(set(ids)) == 63 and rec['done']['stopReason'] == 'noMore', f"{len(set(ids))} {rec['done']['stopReason']}")
     b.close()
 
     # 5) หน้ารับข้อมูลไม่ตอบ แต่หน้าต่างยังเข้าถึงได้ → พาหน้าต่างไปพร้อมข้อมูลในลิงก์เอง

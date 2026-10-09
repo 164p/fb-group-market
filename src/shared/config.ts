@@ -6,7 +6,7 @@ export const APP_ORIGIN = new URL(APP_URL).origin;
 export const FACEBOOK_ORIGINS = ['https://www.facebook.com', 'https://web.facebook.com'] as const;
 
 /** เพิ่มเลขนี้ทุกครั้งที่ bookmarklet เปลี่ยนแบบที่ต้องให้ผู้ใช้ลากปุ่มใหม่ */
-export const BOOKMARKLET_VERSION = 3; // 3: อ่านเฉพาะโพสต์ใกล้จอ, ไม่หยุดเพราะโพสต์แนะนำเก่า, รายงานวิเคราะห์
+export const BOOKMARKLET_VERSION = 4; // 4: เลื่อนหน้าแบบตรวจสอบได้จริง (กล่องเลื่อนด้านใน, ไม่ถอยหลัง, หยุดรอเมื่อแท็บถูกซ่อน)
 /** เว็บแอปรับข้อมูลจาก bookmarklet เวอร์ชันนี้ขึ้นไปเท่านั้น (เวอร์ชันเก่าจะถูกขอให้ลากปุ่มใหม่) */
 export const MIN_BOOKMARKLET_VERSION = 1;
 

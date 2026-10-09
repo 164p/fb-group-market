@@ -10,7 +10,7 @@ export interface Prefs {
 export type PanelState =
   | { kind: 'setup' }
   | { kind: 'connecting' }
-  | { kind: 'running'; collected: number; scanned: number; oldest?: string; direct: boolean }
+  | { kind: 'running'; collected: number; scanned: number; oldest?: string; direct: boolean; paused?: boolean }
   | { kind: 'handoff'; collected: number; note?: string }
   | { kind: 'done'; title: string; body: string; fallback?: boolean; receiveUrl?: string }
   | { kind: 'error'; title: string; body: string; link?: { href: string; label: string } };
@@ -115,8 +115,10 @@ export class Panel {
           h('div', { class: 'bar' }, h('i')),
           h('p', { class: 'muted' }, s.oldest ? `อ่านถึงโพสต์: ${s.oldest}` : 'กำลังเลื่อนหน้าและอ่านโพสต์…'),
         ];
+        if (s.paused)
+          nodes.push(h('div', { class: 'warn' }, 'หยุดชั่วคราว — กลับมาที่แท็บนี้ Facebook จะโหลดโพสต์เพิ่มเฉพาะตอนที่แท็บนี้แสดงอยู่บนจอ'));
         if (!s.direct) nodes.push(h('p', { class: 'muted', style: 'margin-top:6px' }, 'เมื่อเสร็จ กดปุ่ม "ส่งเข้าเว็บ" เพื่อดูสินค้า'));
-        nodes.push(h('p', { class: 'muted', style: 'margin-top:8px' }, 'เปิดแท็บนี้ค้างไว้จนเสร็จ'), stop);
+        nodes.push(h('p', { class: 'muted', style: 'margin-top:8px' }, 'ระบบเลื่อนหน้าให้เอง ไม่ต้องเลื่อนเอง — เปิดแท็บนี้ค้างไว้บนจอจนเสร็จ (สลับไปแท็บอื่นได้แต่จะหยุดชั่วคราว)'), stop);
         return nodes;
       }
       case 'handoff': {
