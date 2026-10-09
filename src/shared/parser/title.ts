@@ -7,13 +7,16 @@ const DECOR = /[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}★☆●○◆
 
 /** คำขึ้นต้นที่ไม่ใช่ชื่อสินค้า */
 const LEAD =
-  /^(?:[[(]?\s*(?:ขาย(?:ด่วน|ถูก|ต่อ|แล้ว)?|ปล่อย(?:ต่อ)?|ส่งต่อ|มือสอง|มือ\s?2|sold(?:\s*out)?|wts|fs|for\s*sale|sale|sell(?:ing)?|ด่วน|ลดราคา|ราคาดี|ของดี|มาแล้ว|ขายค่ะ|ขายครับ|ขายคะ|ขายนะ)\s*\]?\s*[:：\-–—|/]?\s*)+/i;
+  /^(?:[[(]?\s*(?:ขออนุญาต(?:แอด(?:มิน)?|ลง)?(?:ขาย)?|ขาย(?:ด่วน|ถูก|ต่อ|แล้ว)?|ปล่อย(?:ต่อ)?|ส่งต่อ|มือสอง|มือ\s?2|sold(?:\s*out)?|wts|fs|for\s*sale|sale|sell(?:ing)?|ด่วน|ลดราคา|ราคาดี|ของดี|มาแล้ว|ขายค่ะ|ขายครับ|ขายคะ|ขายนะ)\s*\]?\s*[:：\-–—|/]?\s*)+/i;
 
 /** บรรทัดที่ไม่ใช่ชื่อสินค้าแน่ๆ */
 const SKIP_LINE =
   /^(?:ขาย(?:ค่ะ|ครับ|คะ|นะ|จ้า|จ้ะ)?|ปล่อย(?:ค่ะ|ครับ)?|มือสอง|ด่วน|สวัสดี.*|สนใจ.*|ราคา\s*[:：]?.*|ส่งฟรี.*|นัดรับ.*|โอนก่อน.*|ไม่รับ.*|ติดต่อ.*|tel.*|โทร.*|line.*|ไลน์.*|#.*|\.+|-+|=+|ขายแล้ว.*|sold.*)$/i;
 
-function clean(line: string): string {
+/** คำลงท้ายสุภาพท้ายชื่อ เช่น "…แผ่นครับบ", "…เองค่ะ" */
+const TRAILING_PARTICLE = /\s*(?:นะ)?(?:ค่ะ+|คะ+|ครับ+|คับ+|ค่า+|จ้า+|จ้ะ|น้า+|ฮะ)\s*$/;
+
+export function clean(line: string): string {
   return line
     .replace(DECOR, ' ')
     .replace(/#[^\s#]+/g, ' ')
@@ -22,10 +25,11 @@ function clean(line: string): string {
     .trim()
     .replace(LEAD, '')
     .replace(/^[\s:：\-–—|/.,]+|[\s:：\-–—|/,]+$/g, '')
+    .replace(TRAILING_PARTICLE, '')
     .trim();
 }
 
-function truncate(s: string): string {
+export function truncate(s: string): string {
   if (s.length <= MAX_LEN) return s;
   const cut = s.slice(0, MAX_LEN);
   const sp = cut.lastIndexOf(' ');

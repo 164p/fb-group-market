@@ -18,6 +18,7 @@ interface Props extends ItemActions {
 
 /** ข้อความเนื้อหาโพสต์โดยตัดบรรทัดชื่อและบรรทัดราคาออก เหลือรายละเอียด */
 function snippet(l: Listing): string {
+  if (l.itemCount) return ''; // รายการจากโพสต์หลายรายการ แสดงที่มาแทน (ItemContext)
   const norm = (s: string) => s.toLowerCase().replace(/#\S+/g, '').replace(/\s+/g, ' ').trim();
   const title = norm(l.title.replace(/…$/, ''));
   let titleDropped = false;
@@ -39,6 +40,22 @@ function snippet(l: Listing): string {
       return true;
     })
     .join(' ');
+}
+
+/** ที่มาของรายการที่แยกจากโพสต์ขายหลายรายการ */
+function ItemContext({ listing }: { listing: Listing }) {
+  if (!listing.itemCount) return null;
+  return (
+    <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted thai-wrap">
+      {listing.itemNote && (
+        <span className="rounded-md bg-sunken px-1.5 py-0.5 text-xs font-medium text-ink">{listing.itemNote}</span>
+      )}
+      <span>
+        {listing.itemIndex! + 1} ใน {listing.itemCount} รายการ
+        {listing.postTitle ? ` จากโพสต์ "${listing.postTitle}"` : ' ในโพสต์เดียวกัน'}
+      </span>
+    </p>
+  );
 }
 
 function PostLink({ listing, compact }: { listing: Listing; compact?: boolean }) {
@@ -148,6 +165,7 @@ export const ListingCard = memo(function ListingCard({ listing, group, now, ...a
         {sold && <span className="rounded-full bg-ink px-2 py-0.5 text-xs font-semibold text-paper">ขายแล้ว</span>}
       </div>
 
+      <ItemContext listing={listing} />
       {body && <p className="mt-3 line-clamp-2 text-sm text-muted thai-wrap">{body}</p>}
 
       <div className="mt-auto pt-4">

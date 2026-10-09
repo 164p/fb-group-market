@@ -13,7 +13,7 @@ export interface HelloResult {
   minBookmarkletVersion: number;
 }
 
-const HELLO_TIMEOUT_MS = 10_000;
+const HELLO_TIMEOUT_MS = 6_000;
 
 export class Bridge {
   readonly sessionId = (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`).toString();
@@ -114,6 +114,22 @@ export class Bridge {
 
   receiveUrl(paste = false): string {
     return `${this.appUrl}#/receive${paste ? '?paste=1' : ''}`;
+  }
+
+  /** ลิงก์หน้ารับข้อมูลพร้อมข้อมูลทั้งรอบ (บีบอัดแล้ว) ในส่วน # */
+  handoffUrl(encoded: string): string {
+    return `${this.appUrl}#/receive?d=${encoded}`;
+  }
+
+  /** พาหน้าต่างที่เปิดไว้ไปที่ url — คืน false ถ้าหน้าต่างถูกตัดการเชื่อมต่อ/ปิดไปแล้ว */
+  navigate(url: string): boolean {
+    if (this.windowClosed) return false;
+    try {
+      this.win!.location.href = url;
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   dispose() {

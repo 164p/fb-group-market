@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest';
+import { PARSER_VERSION } from '../config';
 import { FIXTURES } from './__tests__/fixtures';
 import { HOLDOUT } from './__tests__/holdout';
 import { parsePost, parsePostedTime, parsePrice, parseStatus, parseTitle, reparseListing } from './index';
@@ -131,6 +132,6 @@ describe('parsePost', () => {
   it('reparse keeps user flags and times', () => {
     const l = { ...parsePost(raw, { groupId: '123', now, storeAuthorName: false }), favorite: true, price: 1, parserVersion: 0 };
     const r = reparseListing(l);
-    expect(r).toMatchObject({ favorite: true, price: 14000, firstSeenAt: now, parserVersion: 1 });
+    expect(r).toMatchObject({ favorite: true, price: 14000, firstSeenAt: now, parserVersion: PARSER_VERSION });
   });
 });

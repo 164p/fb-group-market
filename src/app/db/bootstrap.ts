@@ -1,5 +1,7 @@
-import { store } from './index';
-import { seedOnFirstRun } from './sample';
+import { PARSER_VERSION } from '../../shared/config';
+import { reparsePost } from '../../shared/parser';
+import { db, store } from './index';
+import { isSampleGroupId, seedOnFirstRun } from './sample';
 
 let started: Promise<void> | null = null;
 
@@ -24,6 +26,13 @@ export function bootstrapData(): Promise<void> {
       }
     } catch (e) {
       console.error('seed failed', e);
+    }
+    // ข้อมูลที่แยกด้วย parser เวอร์ชันเก่า → แยกใหม่อัตโนมัติ (คงดาว/การซ่อนไว้)
+    try {
+      const stale = await db.listings.filter((l) => l.parserVersion < PARSER_VERSION && !isSampleGroupId(l.groupId)).count();
+      if (stale > 0) await store.listings.reparseAll(reparsePost, isSampleGroupId);
+    } catch (e) {
+      console.error('reparse failed', e);
     }
   })();
   return started;

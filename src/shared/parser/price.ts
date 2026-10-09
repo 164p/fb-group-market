@@ -35,7 +35,7 @@ const UNIT_AFTER =
 
 /** ก่อนตัวเลข: ตัวเลขนี้เป็นสเปก/คุณลักษณะ */
 const SPEC_BEFORE =
-  /(ชัต(?:เตอร์)?|shutter|แบต(?:เตอรี่)?|battery|ความจุ|ขนาด|ไซส์|size|รุ่น|series|gen|ปี|ใช้มา|ใช้ไป|ประกัน(?:เหลือ)?|ระยะ|เลข|เบอร์|no\.?|#|ram|rom|จอ|รหัส|ไมล์|mile|โมเดล|model|ver\.?|version|ios|android|จำนวน|มี|ยาว|กว้าง|สูง|หนา|น้ำหนัก|อายุ|ล็อต|lot|สต็อก|stock|ซม|เบอร์)\s*:?\s*$/i;
+  /(ชัต(?:เตอร์)?|shutter|แบต(?:เตอรี่)?|battery|ความจุ|ขนาด|ไซส์|size|รุ่น|series|gen|ปี|ใช้มา|ใช้ไป|ประกัน(?:เหลือ)?|ระยะ|เลข|เบอร์|no\.?|#|ram|rom|จอ|รหัส|ไมล์|mile|โมเดล|model|ver\.?|version|ios|android|จำนวน|ยาว|กว้าง|สูง|หนา|น้ำหนัก|อายุ|ล็อต|lot|สต็อก|stock|ซม|เบอร์)\s*:?\s*$/i;
 
 /** ก่อนตัวเลข: เป็นราคาเดิม ไม่ใช่ราคาขาย */
 const ORIGINAL_BEFORE =
@@ -45,6 +45,9 @@ const ORIGINAL_BEFORE =
 const STRONG_BEFORE = /(ราคา(?:ขาย|พิเศษ|เพียง|ปล่อย|เหมา)?|ลดเหลือ|เหลือ(?:เพียง)?|ปล่อย(?:ที่|ราคา)?|ขาย(?:ที่|ราคา|ถูก)?|เพียง|แค่|ละ|เหมา|price|ราคาละ|sale|รวม)\s*:?\s*(?:฿|thb|บ\.)?\s*$/i;
 const CURRENCY_BEFORE = /(฿|thb|บาท)\s*$/i;
 const CURRENCY_AFTER = /^\s?(บาท|บ\.(?!\S*\d)|บ(?![ก-๙])|฿|thb|baht|bht|\.-|-\.|\/-|,-|-(?!\s*\d)|=|\.?—)/i;
+
+/** ราคาตามด้วยข้อมูลการส่ง เช่น "970รวมส่งems", "450 ส่งฟรี", "300+ส่ง" */
+const SHIPPING_AFTER = /^\s?(?:\+\s?ส่ง|รวมส่ง|รวมค่าส่ง|ส่งฟรี|ฟรีส่ง|ไม่รวมส่ง|ยังไม่รวมส่ง|ems|kerry|flash|j&t|ไปรษณีย์)/i;
 
 const MULTIPLIERS: [RegExp, number][] = [
   [/^\s?(k|K)(?![a-zA-Z])/, 1_000],
@@ -160,6 +163,7 @@ function scan(original: string): Candidate[] {
     if (SPEC_BEFORE.test(before) && !STRONG_BEFORE.test(before)) score -= 5;
 
     if (CURRENCY_AFTER.test(tail)) score += 5;
+    else if (SHIPPING_AFTER.test(tail)) score += 4;
     else if (UNIT_AFTER.test(tail)) score -= 8;
     if (/^\s?k\b/i.test(lower.slice(start + m[0].length)) && /(ชัต|shutter|ไมล์|mile|km|กม)/i.test(before)) score -= 10;
 
@@ -170,12 +174,19 @@ function scan(original: string): Candidate[] {
 
     // บรรทัดที่มีแค่ราคา เช่น "4,500" หรือ "฿1,500.-"
     const lineRest = (lower.slice(ls, start) + lower.slice(end, le)).replace(
-      /[\s฿.\-,:=*!✅💰🔥📌💵]|\p{Extended_Pictographic}|บาท|บ\.|thb|baht|ราคา|price|ต่อรองได้|ต่อได้|ไม่ต่อ(?:รอง)?|ขาดตัว|ค่ะ|ครับ|คะ|นะ|จ้า|เท่านั้น|ส่งฟรี|net|สุทธิ/gu,
+      /[\s฿.\-,:=*!+✅💰🔥📌💵]|\p{Extended_Pictographic}|บาท|บ\.|thb|baht|ราคา|price|ต่อรองได้|ต่อได้|ไม่ต่อ(?:รอง)?|ขาดตัว|ค่ะ|ครับ|คับ|คะ|นะ|จ้า|เท่านั้น|(?:ยังไม่|ไม่)?รวม(?:ค่า)?ส่ง(?:แล้ว)?|ส่งฟรี|ฟรีส่ง|ems|kerry|flash|net|สุทธิ/gu,
       '',
     );
     if (lineRest === '') score += 4;
     // ตัวเลขท้ายบรรทัดชื่อสินค้า เช่น "iPhone 11 7500" หรือ "เครื่องกรองน้ำ Coway 3,200"
-    else if (lower.slice(end, le).trim() === '' && value >= 100 && /[\p{L}]/u.test(lower.slice(ls, start))) score += 2;
+    else if (
+      lower
+        .slice(end, le)
+        .replace(/ขายแล้ว|ขายไปแล้ว|sold|จองแล้ว|ติดจอง|ปิดการขาย|[\s.!)]/g, '') === '' &&
+      value >= 100 &&
+      /[\p{L}]/u.test(lower.slice(ls, start))
+    )
+      score += 2;
 
     if (value <= 0 || value > 50_000_000) continue;
     out.push({ value, start, end, score, max });

@@ -11,7 +11,7 @@ export const BOOKMARKLET_VERSION = 1;
 export const MIN_BOOKMARKLET_VERSION = 1;
 
 /** เพิ่มเลขนี้เมื่อปรับ logic ของ parser เพื่อให้ parse ข้อมูลเก่าใหม่ได้ */
-export const PARSER_VERSION = 1;
+export const PARSER_VERSION = 2; // 2: แยกโพสต์ที่ขายหลายรายการ
 
 export const DEFAULT_SETTINGS = {
   stopMode: 'maxPosts',

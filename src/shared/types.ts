@@ -49,6 +49,20 @@ export interface Listing {
   favorite: boolean;
   hidden: boolean;
   parserVersion: number;
+
+  /* ---- โพสต์ที่ขายหลายรายการ (แยกเป็นหลาย Listing จากโพสต์เดียว) ---- */
+  /** ลำดับรายการในโพสต์ (เริ่ม 0) — ไม่มีเมื่อโพสต์ขายรายการเดียว */
+  itemIndex?: number;
+  /** จำนวนรายการทั้งหมดในโพสต์ */
+  itemCount?: number;
+  /** ข้อความเฉพาะของรายการนี้ (บรรทัดชื่อ + ราคา) ใช้ค้นหาและแสดงผล */
+  itemText?: string;
+  /** หมวดย่อยในโพสต์ เช่น "มือ1 ไม่แกะซีล" */
+  itemNote?: string;
+  /** หัวข้อของโพสต์ เช่น "แผ่นเกม Nintendo Switch มือ2" */
+  postTitle?: string;
+  /** ราคาจากโพสต์ขายแบบมีฟอร์ม (เก็บไว้เพื่อแยกข้อมูลใหม่ได้) */
+  structuredPrice?: string;
 }
 
 export type StopReason = 'maxPosts' | 'maxAge' | 'reachedKnown' | 'noMore' | 'user' | 'error';

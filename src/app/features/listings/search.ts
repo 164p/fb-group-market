@@ -22,7 +22,13 @@ export interface SearchIndex {
  * ภาษาไทยไม่มีช่องว่างระหว่างคำ การค้นแบบ "อยู่ในข้อความ" จึงทำงานได้โดยไม่ต้องตัดคำ
  */
 export function buildSearchIndex(listings: Listing[]): SearchIndex {
-  const docs = listings.map((l) => ({ id: l.id, title: normalize(l.title), text: normalize(l.rawText) }));
+  // รายการจากโพสต์หลายรายการ: ค้นในข้อความของรายการนั้น + หัวข้อโพสต์ ไม่ใช่ทั้งโพสต์
+  // (ไม่อย่างนั้นค้น "zelda" จะได้ทุกรายการในโพสต์เดียวกัน)
+  const docs = listings.map((l) => ({
+    id: l.id,
+    title: normalize(l.title),
+    text: normalize(l.itemCount ? [l.postTitle, l.itemNote, l.itemText].filter(Boolean).join('\n') : l.rawText),
+  }));
   const fuse = new Fuse(docs, {
     keys: [
       { name: 'title', weight: 2 },

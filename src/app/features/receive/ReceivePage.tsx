@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { decodePayload } from '../../../shared/transfer';
 import { MIN_BOOKMARKLET_VERSION } from '../../../shared/config';
 import { isBridgeMessage, isExportPayload, isTrustedFacebookOrigin, type BridgeMessage } from '../../../shared/protocol';
 import type { StopReason } from '../../../shared/types';
@@ -12,6 +13,7 @@ import { Ingestor, type IngestSession } from './ingest';
 
 type View =
   | { kind: 'waiting' }
+  | { kind: 'saving' }
   | { kind: 'receiving'; session: IngestSession }
   | { kind: 'done'; session: IngestSession; stopReason: StopReason; imported?: boolean }
   | { kind: 'error'; title: string; body: string };
@@ -153,6 +155,31 @@ export default function ReceivePage() {
     return () => window.removeEventListener('message', onMessage);
   }, [expectedSession]);
 
+  // ข้อมูลที่ส่งมาในลิงก์ (#/receive?d=...) — ใช้เมื่อหน้า Facebook คุยกับหน้าต่างนี้โดยตรงไม่ได้
+  const linkPayload = params.get('d');
+  const navigate = useNavigate();
+  const handled = useRef<string | null>(null);
+  useEffect(() => {
+    if (!linkPayload || handled.current === linkPayload) return;
+    handled.current = linkPayload;
+    setView({ kind: 'saving' });
+    void (async () => {
+      try {
+        const data = await decodePayload(linkPayload);
+        if (!isExportPayload(data)) throw new Error('not an export');
+        const s = await ingestor.current.importExport(data);
+        if (!s) throw new Error('bad group');
+        setView({ kind: 'done', session: { ...s, totals: { ...s.totals } }, stopReason: s.stopReason ?? data.stopReason });
+      } catch (e) {
+        console.error(e);
+        setView({ kind: 'error', title: 'อ่านข้อมูลในลิงก์ไม่ได้', body: 'ลองกด "ส่งเข้าเว็บ" บน Facebook อีกครั้ง หรือใช้ "คัดลอกข้อมูลแทน"' });
+      } finally {
+        // เอาข้อมูลออกจาก URL ไม่ให้ค้างในประวัติ/รีเฟรชแล้วนำเข้าซ้ำ
+        navigate('/receive', { replace: true });
+      }
+    })();
+  }, [linkPayload, navigate]);
+
   const importText = useCallback(async (text: string): Promise<string | null> => {
     let data: unknown;
     try {
@@ -204,6 +231,13 @@ export default function ReceivePage() {
           )}
           <PasteBox autoFocus={pasteMode} onImport={importText} />
         </>
+      )}
+
+      {view.kind === 'saving' && (
+        <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-5" role="status">
+          <span className="h-3 w-3 animate-pulse rounded-full bg-accent" />
+          <span>กำลังแยกราคาและบันทึกสินค้า…</span>
+        </div>
       )}
 
       {view.kind === 'receiving' && (

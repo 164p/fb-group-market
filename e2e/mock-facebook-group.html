@@ -54,7 +54,9 @@
       // โพสต์ปักหมุด (เก่า) อยู่บนสุด
       posts.push({ id: '100000', title: 'กฎของกลุ่ม อ่านก่อนโพสต์', body: 'ห้ามขายของผิดกฎหมาย', time: '3 มีนาคม 2567', pinned: true });
       for (let i = 0; i < TOTAL; i++) {
-        const [title, body] = ITEMS[i % ITEMS.length];
+        let [title, body] = ITEMS[i % ITEMS.length];
+        // โพสต์ขายหลายรายการ (ราคาอยู่บรรทัดถัดไป / บรรทัดเดียวกัน)
+        if (i === 12) [title, body] = ['แผ่นเกม Switch มือ2', '-Mario Kart 8 สภาพดี\n970รวมส่ง\n-Zelda Tears of the Kingdom 1,200 รวมส่ง\n-Pokemon Violet 900'];
         const hours = i * 2 + 1;
         const time = hours < 24 ? `${hours} ชม.` : `${Math.floor(hours / 24)} วัน`;
         posts.push({

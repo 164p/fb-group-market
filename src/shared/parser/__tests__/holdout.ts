@@ -23,6 +23,6 @@ export const HOLDOUT: Fixture[] = [
   { name: 'h16', text: 'ชุดนักเรียน ม.ปลาย หญิง ไซส์ 40 3 ชุด\nชุดละ 150', price: 150, type: 'fixed', title: 'ชุดนักเรียน ม.ปลาย หญิง ไซส์ 40 3 ชุด' },
   { name: 'h17', text: 'Steam Deck OLED 512GB\n17,500\n#ขาย #steamdeck', price: 17500, type: 'fixed', title: 'Steam Deck OLED 512GB' },
   { name: 'h18', text: 'แอร์ Daikin 12000 BTU ถอดจากบ้าน ใช้งาน 3 ปี\nราคา 7,000 รวมถอด', price: 7000, type: 'fixed', title: 'แอร์ Daikin 12000 BTU ถอดจากบ้าน ใช้งาน 3 ปี' },
-  { name: 'h19', text: 'ให้ฟรี ไม้แขวนเสื้อ 50 อัน มารับเองค่ะ', price: 0, type: 'fixed', title: 'ให้ฟรี ไม้แขวนเสื้อ 50 อัน มารับเองค่ะ' },
+  { name: 'h19', text: 'ให้ฟรี ไม้แขวนเสื้อ 50 อัน มารับเองค่ะ', price: 0, type: 'fixed', title: 'ให้ฟรี ไม้แขวนเสื้อ 50 อัน มารับเอง' },
   { name: 'h20', text: 'Herman Miller Aeron size B มือสอง\nปล่อย 25,000 จากราคาศูนย์ 52,000', price: 25000, type: 'fixed', title: 'Herman Miller Aeron size B มือสอง' },
 ];

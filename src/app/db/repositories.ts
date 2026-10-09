@@ -82,11 +82,69 @@ export function listingsRepo(db: AppDB) {
     count: () => db.listings.count(),
     byGroup: (groupId: string) => db.listings.where('groupId').equals(groupId).toArray(),
 
-    /** post id ของกลุ่มที่มีอยู่แล้ว — ใช้ส่งกลับให้ bookmarklet ใน ACK */
+    /** post id ของกลุ่มที่มีอยู่แล้ว — ใช้ส่งกลับให้ bookmarklet ใน ACK (โพสต์หลายรายการนับเป็น 1) */
     async knownPostIds(groupId: string): Promise<Set<string>> {
       const keys = await db.listings.where('groupId').equals(groupId).primaryKeys();
       const prefix = `${groupId}_`;
-      return new Set(keys.map((k) => String(k).slice(prefix.length)));
+      return new Set(keys.map((k) => String(k).slice(prefix.length).split('_')[0]));
+    },
+
+    /** ทุกแถวของโพสต์หนึ่ง (แถวเดียว หรือหลายรายการ) */
+    async rowsOfPost(groupId: string, postId: string): Promise<Listing[]> {
+      const key = listingKey(groupId, postId);
+      const rows = await db.listings.where(':id').startsWith(key).toArray();
+      return rows.filter((r) => r.id === key || r.id.startsWith(`${key}_`));
+    },
+
+    /**
+     * บันทึกผลการแยกโพสต์ (แต่ละโพสต์อาจมีหลายแถว)
+     * - แถวของโพสต์เดิมที่ไม่มีในผลใหม่ถูกลบ (เช่น เดิมแถวเดียว ตอนนี้แยกเป็นหลายรายการ)
+     * - คงดาว/ซ่อน/เวลาที่เห็นครั้งแรก จากแถวเดิมที่ id ตรงกัน หรือจากแถวเดิมของโพสต์เดียวกัน
+     * - นับ "ใหม่" เฉพาะโพสต์ที่ไม่เคยมี, โพสต์ที่เคยมีนับเป็น "อัปเดต"
+     */
+    async replacePosts(rows: Listing[]): Promise<UpsertResult> {
+      if (rows.length === 0) return { added: 0, updated: 0 };
+      return db.transaction('rw', db.listings, async () => {
+        const byPost = new Map<string, Listing[]>();
+        for (const r of rows) {
+          const k = listingKey(r.groupId, r.postId);
+          byPost.set(k, [...(byPost.get(k) ?? []), r]);
+        }
+        let added = 0;
+        let updated = 0;
+        const put: Listing[] = [];
+        const del: string[] = [];
+        for (const [key, fresh] of byPost) {
+          const old = (await db.listings.where(':id').startsWith(key).toArray()).filter(
+            (r) => r.id === key || r.id.startsWith(`${key}_`),
+          );
+          if (old.length === 0) added += fresh.length;
+          else updated += fresh.length;
+          const oldById = new Map(old.map((r) => [r.id, r]));
+          const fallback = old[0];
+          for (const item of fresh) {
+            const prev = oldById.get(item.id) ?? fallback;
+            put.push(
+              prev
+                ? {
+                    ...item,
+                    firstSeenAt: Math.min(prev.firstSeenAt, item.firstSeenAt),
+                    favorite: prev.favorite,
+                    hidden: prev.hidden,
+                    postedAt: item.postedAt ?? prev.postedAt,
+                    postedAtText: item.postedAtText ?? prev.postedAtText,
+                    authorName: item.authorName ?? prev.authorName,
+                  }
+                : item,
+            );
+          }
+          const keep = new Set(fresh.map((f) => f.id));
+          for (const r of old) if (!keep.has(r.id)) del.push(r.id);
+        }
+        if (del.length) await db.listings.bulkDelete(del);
+        await db.listings.bulkPut(put);
+        return { added, updated };
+      });
     },
 
     /**
@@ -127,26 +185,34 @@ export function listingsRepo(db: AppDB) {
      * ใช้ parser ปัจจุบันแยกข้อมูลใหม่จาก rawText (ไม่รวมข้อมูลตัวอย่าง)
      * @returns จำนวนรายการที่ราคา/ชื่อ/สถานะเปลี่ยน
      */
-    async reparseAll(reparse: (l: Listing) => Listing, skipGroup: (groupId: string) => boolean): Promise<number> {
+    async reparseAll(reparse: (rows: Listing[]) => Listing[], skipGroup: (groupId: string) => boolean): Promise<number> {
       return db.transaction('rw', db.listings, async () => {
         const all = await db.listings.toArray();
-        const changed: Listing[] = [];
+        const byPost = new Map<string, Listing[]>();
         for (const l of all) {
           if (skipGroup(l.groupId)) continue;
-          const r = reparse(l);
-          if (
-            r.title !== l.title ||
-            r.price !== l.price ||
-            r.priceMin !== l.priceMin ||
-            r.priceMax !== l.priceMax ||
-            r.priceType !== l.priceType ||
-            r.status !== l.status ||
-            r.parserVersion !== l.parserVersion
-          )
-            changed.push(r);
+          const k = listingKey(l.groupId, l.postId);
+          byPost.set(k, [...(byPost.get(k) ?? []), l]);
         }
-        await db.listings.bulkPut(changed);
-        return changed.length;
+        const sig = (l: Listing) =>
+          [l.id, l.title, l.price, l.priceMin, l.priceMax, l.priceType, l.status, l.itemNote, l.postTitle].join('|');
+        let changed = 0;
+        const put: Listing[] = [];
+        const del: string[] = [];
+        for (const rows of byPost.values()) {
+          rows.sort((a, b) => a.id.localeCompare(b.id));
+          const fresh = reparse(rows);
+          const before = new Set(rows.map(sig));
+          const diff = fresh.filter((f) => !before.has(sig(f))).length + Math.max(0, rows.length - fresh.length);
+          if (diff === 0 && rows.every((r) => r.parserVersion === fresh[0]?.parserVersion)) continue;
+          changed += Math.max(diff, 1);
+          const keep = new Set(fresh.map((f) => f.id));
+          for (const r of rows) if (!keep.has(r.id)) del.push(r.id);
+          put.push(...fresh);
+        }
+        if (del.length) await db.listings.bulkDelete(del);
+        await db.listings.bulkPut(put);
+        return changed;
       });
     },
 

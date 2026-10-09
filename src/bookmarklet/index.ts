@@ -5,6 +5,8 @@ import { readGroup } from './dom/extract';
 import { Panel, type Prefs } from './panel';
 import { collect } from './scroller';
 import { Bridge, copyText } from './transport';
+import { directKnownToFail, loadSentIds, rememberDirect, saveSentIds } from './memory';
+import { encodePayload, MAX_URL_PAYLOAD } from '../shared/transfer';
 
 declare global {
   interface Window {
@@ -86,19 +88,34 @@ function main() {
     });
   };
 
+  let handoffUrl = '';
+  panel.onHandoff = () => {
+    // เปิดแท็บใหม่ในขณะที่ผู้ใช้คลิก (เบราว์เซอร์อนุญาต) พร้อมข้อมูลทั้งรอบในลิงก์
+    const w = window.open(handoffUrl, '_blank');
+    panel.render(
+      w
+        ? { kind: 'done', title: 'ส่งเข้าเว็บแล้ว', body: 'ดูสินค้าได้ที่แท็บที่เพิ่งเปิด' }
+        : { kind: 'done', title: 'เบราว์เซอร์บล็อกแท็บใหม่', body: 'อนุญาตป๊อปอัปสำหรับ facebook.com หรือคัดลอกข้อมูลไปวางแทน', fallback: true, receiveUrl: bridge?.receiveUrl(true) },
+    );
+  };
+
   panel.onStart = (prefs) => {
     savePrefs(prefs);
     state.running = true;
     state.stop = false;
     bridge = new Bridge(appUrl, appOrigin, group, BOOKMARKLET_VERSION);
+    // ส่งตรงไม่ได้ในครั้งก่อน (Facebook ตัดการเชื่อมต่อหน้าต่าง) → ไม่ต้องเปิดหน้าต่างรอ ส่งผ่านแท็บใหม่ตอนจบ
+    const tryDirect = !directKnownToFail();
     // ต้องเปิดหน้าต่างทันทีในขณะที่ผู้ใช้คลิก
-    bridge.openWindow();
-    void run(prefs, bridge);
+    if (tryDirect) bridge.openWindow();
+    void run(prefs, bridge, tryDirect);
   };
 
-  async function run(prefs: Prefs, b: Bridge) {
-    panel.render({ kind: 'connecting' });
-    const hello = await b.hello();
+  async function run(prefs: Prefs, b: Bridge, tryDirect: boolean) {
+    const hello = tryDirect
+      ? (panel.render({ kind: 'connecting' }), await b.hello())
+      : { ok: false, knownIds: new Set<string>(), storeAuthorName: false, minBookmarkletVersion: 0 };
+    if (tryDirect) rememberDirect(hello.ok);
     if (hello.ok && hello.minBookmarkletVersion > BOOKMARKLET_VERSION) {
       state.running = false;
       panel.render({
@@ -121,7 +138,8 @@ function main() {
           maxPosts: prefs.maxPosts,
           maxAgeDays: prefs.maxAgeDays,
           delayMs: test?.delayMs ?? DEFAULT_SETTINGS.scrollDelayMs,
-          knownIds: hello.knownIds,
+          // post id ที่เว็บแอปมี + ที่ปุ่มนี้เคยส่ง (ใช้ได้แม้ส่งตรงไม่ได้)
+          knownIds: new Set([...hello.knownIds, ...loadSentIds(group!.id)]),
           withAuthor: hello.storeAuthorName,
         },
         {
@@ -139,6 +157,7 @@ function main() {
       console.error('[ดึงสินค้า]', e);
     }
     state.running = false;
+    saveSentIds(group!.id, b.all.map((p) => p.postId));
 
     const delivered = await b.done(stopReason, scanned);
     if (delivered) {
@@ -153,11 +172,31 @@ function main() {
       });
       return;
     }
-    lastExport = JSON.stringify(b.exportPayload(stopReason, scanned));
+
+    const payload = b.exportPayload(stopReason, scanned);
+    lastExport = JSON.stringify(payload);
+    let encoded = '';
+    try {
+      encoded = await encodePayload(payload);
+    } catch (e) {
+      console.error('[ดึงสินค้า] encode', e);
+    }
+    handoffUrl = encoded ? b.handoffUrl(encoded) : '';
+    const fitsUrl = !!handoffUrl && handoffUrl.length < MAX_URL_PAYLOAD;
+
+    // หน้าต่างที่เปิดไว้ยังเข้าถึงได้ (แค่คุยกันไม่ได้) → พาไปหน้ารับข้อมูลพร้อมข้อมูลเลย ไม่ต้องกดอะไร
+    if (fitsUrl && b.navigate(handoffUrl)) {
+      panel.render({ kind: 'done', title: `ส่งแล้ว ${collected} โพสต์`, body: `หยุดเพราะ${STOP_TEXT[stopReason]} ดูผลได้ที่หน้าต่างรับข้อมูล` });
+      return;
+    }
+    if (fitsUrl) {
+      panel.render({ kind: 'handoff', collected });
+      return;
+    }
     panel.render({
       kind: 'done',
       title: `เก็บได้ ${collected} โพสต์`,
-      body: 'ส่งไปหน้ารับข้อมูลโดยตรงไม่ได้ กดคัดลอกข้อมูลแล้วนำไปวาง',
+      body: 'ข้อมูลมากเกินกว่าจะส่งผ่านลิงก์ กดคัดลอกข้อมูลแล้วนำไปวาง',
       fallback: true,
       receiveUrl: b.receiveUrl(true),
     });

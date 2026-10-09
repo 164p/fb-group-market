@@ -121,16 +121,12 @@ with sync_playwright() as p:
     check('ส่งเป็นชุดละไม่เกิน 10', all(len(bt['posts']) <= 10 for bt in rec['batches']))
     b.close()
 
-    # 5) ทางสำรอง: หน้ารับข้อมูลไม่ตอบ
-    b, page, popup, text, rec, errs = run(p, 'ทางสำรอง: คัดลอกข้อมูล', {'silent': True}, set_mode('maxPosts', 15), timeout_ms=120_000)
-    check('แสดงปุ่มคัดลอกข้อมูล', 'คัดลอกข้อมูล' in text, text[:100])
-    page.locator('#fbgm-panel').locator('button.btn').click()
-    page.wait_for_timeout(500)
-    clip = page.evaluate('navigator.clipboard.readText()')
-    data = json.loads(clip)
-    check('คลิปบอร์ดเป็น EXPORT ที่มี 15 โพสต์', data['type'] == 'EXPORT' and len(data['posts']) == 15, f"{data.get('type')} {len(data.get('posts', []))}")
-    if len(sys.argv) > 1:
-        page.screenshot(path=sys.argv[1] + '/bm-fallback.png')
+    # 5) หน้ารับข้อมูลไม่ตอบ แต่หน้าต่างยังเข้าถึงได้ → พาหน้าต่างไปพร้อมข้อมูลในลิงก์เอง
+    b, page, popup, text, rec, errs = run(p, 'หน้ารับข้อมูลไม่ตอบ: ส่งผ่านลิงก์อัตโนมัติ', {'silent': True}, set_mode('maxPosts', 15), timeout_ms=120_000)
+    check('แผงบอกว่าส่งแล้ว 15', 'ส่งแล้ว 15' in text)
+    check('หน้าต่างถูกพาไปที่ #/receive?d=…', '#/receive?d=z' in popup.url, popup.url[:80])
+    remembered = page.evaluate("localStorage.getItem('fbgm:direct')")
+    check('จำว่าส่งตรงไม่ได้', remembered and '"ok":false' in remembered, remembered)
     b.close()
 
     # 6) bookmarklet เวอร์ชันเก่า

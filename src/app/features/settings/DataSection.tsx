@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '../../components/Button';
 import { store } from '../../db';
 import { isSampleGroupId, removeSampleData, seedSampleData } from '../../db/sample';
-import { reparseListing } from '../../../shared/parser';
+import { reparsePost } from '../../../shared/parser';
 import { useDataStats } from '../../hooks/useData';
 import { th } from '../../i18n/th';
 
@@ -64,7 +64,7 @@ export default function DataSection() {
             setBusy(true);
             setMessage(null);
             try {
-              const n = await store.listings.reparseAll(reparseListing, isSampleGroupId);
+              const n = await store.listings.reparseAll(reparsePost, isSampleGroupId);
               setMessage(n ? `อัปเดตแล้ว ${n.toLocaleString('th-TH')} รายการ` : 'ข้อมูลเป็นปัจจุบันแล้ว');
             } finally {
               setBusy(false);

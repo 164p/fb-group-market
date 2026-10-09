@@ -1,6 +1,6 @@
 // รับข้อมูลจาก bookmarklet → แยกราคา/ชื่อ → บันทึก
 // แยกจาก UI เพื่อทดสอบได้ด้วย fake-indexeddb
-import { parsePost } from '../../../shared/parser';
+import { parsePostListings } from '../../../shared/parser';
 import type { GroupInfo } from '../../../shared/protocol';
 import { sanitizeGroup, sanitizePosts } from '../../../shared/sanitize';
 import type { StopReason } from '../../../shared/types';
@@ -77,10 +77,10 @@ export class Ingestor {
       if (s.seqs.has(seq)) return s;
       s.seqs.add(seq);
       const now = this.now();
-      const listings = sanitizePosts(rawPosts, s.group.id).map((p) =>
-        parsePost(p, { groupId: s.group.id, now, storeAuthorName: s.storeAuthorName }),
+      const listings = sanitizePosts(rawPosts, s.group.id).flatMap((p) =>
+        parsePostListings(p, { groupId: s.group.id, now, storeAuthorName: s.storeAuthorName }),
       );
-      const res = await this.store.listings.upsertMany(listings);
+      const res = await this.store.listings.replacePosts(listings);
       const withPrice = listings.filter((l) => l.price != null).length;
       s.totals.received += listings.length;
       s.totals.added += res.added;

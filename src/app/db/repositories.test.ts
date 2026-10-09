@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS } from '../../shared/config';
-import { reparseListing } from '../../shared/parser';
+import { DEFAULT_SETTINGS, PARSER_VERSION } from '../../shared/config';
+import { reparsePost } from '../../shared/parser';
 import type { Listing } from '../../shared/types';
 import { defaultGroupName, listingKey, repos, type Repos } from './repositories';
 import { buildSampleData, removeSampleData, SAMPLE_COUNT, seedOnFirstRun, seedSampleData } from './sample';
@@ -43,7 +43,7 @@ function listing(groupId: string, postId: string, patch: Partial<Listing> = {}):
     lastSeenAt: 1_000,
     favorite: false,
     hidden: false,
-    parserVersion: 1,
+    parserVersion: PARSER_VERSION,
     ...patch,
   };
 }
@@ -111,10 +111,37 @@ describe('listings.upsertMany', () => {
       listing('g', '2', { rawText: 'สินค้า ราคา 100', price: 100, title: 'สินค้า' }),
       listing('sample-x', '3', { rawText: 'ราคา 5,000', price: 1 }),
     ]);
-    const n = await store.listings.reparseAll(reparseListing, (id) => id.startsWith('sample-'));
+    const n = await store.listings.reparseAll(reparsePost, (id) => id.startsWith('sample-'));
     expect(n).toBe(1);
     expect(await db.listings.get(listingKey('g', '1'))).toMatchObject({ price: 9900, title: 'iPad', favorite: true });
     expect((await db.listings.get(listingKey('sample-x', '3')))?.price).toBe(1);
+  });
+
+  it('reparseAll splits an old single row into items and keeps its star', async () => {
+    const text = 'ขายเกม\nZelda Botw 900\nMario Kart 8 1,050\nPokemon Violet 1200';
+    await store.listings.upsertMany([listing('g', '7', { rawText: text, title: 'ขายเกม', price: 900, favorite: true })]);
+    await store.listings.reparseAll(reparsePost, () => false);
+    const rows = await store.listings.rowsOfPost('g', '7');
+    expect(rows.map((r) => [r.id, r.title, r.price, r.favorite, r.itemCount])).toEqual([
+      ['g_7_0', 'Zelda Botw', 900, true, 3],
+      ['g_7_1', 'Mario Kart 8', 1050, true, 3],
+      ['g_7_2', 'Pokemon Violet', 1200, true, 3],
+    ]);
+    expect(await db.listings.get('g_7')).toBeUndefined();
+    expect([...(await store.listings.knownPostIds('g'))]).toEqual(['7']);
+  });
+
+  it('replacePosts counts per post, removes stale rows and keeps flags', async () => {
+    const a = listing('g', '1');
+    expect(await store.listings.replacePosts([a])).toEqual({ added: 1, updated: 0 });
+    await store.listings.setHidden('g_1', true);
+    const items = [0, 1].map((i) => ({ ...listing('g', '1'), id: `g_1_${i}`, itemIndex: i, itemCount: 2 }));
+    expect(await store.listings.replacePosts(items)).toEqual({ added: 0, updated: 2 });
+    const rows = await store.listings.rowsOfPost('g', '1');
+    expect(rows.map((r) => [r.id, r.hidden])).toEqual([
+      ['g_1_0', true],
+      ['g_1_1', true],
+    ]);
   });
 
   it('returns known post ids for a group', async () => {

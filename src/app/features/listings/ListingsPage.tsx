@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
 import type { Listing } from '../../../shared/types';
+import IncrementalList from './IncrementalList';
 import EmptyState from '../../components/EmptyState';
 import { Button, ButtonLink } from '../../components/Button';
 import { GridIcon, ListIcon, SearchIcon, SlidersIcon, TagIcon } from '../../components/Icons';
@@ -90,6 +90,9 @@ export default function ListingsPage() {
   );
 
   const resultsTop = useRef<HTMLDivElement>(null);
+  // เปลี่ยนตัวกรอง/คำค้น/การเรียง → เริ่มแสดงจากชุดแรกใหม่ (กดดาว/ซ่อนไม่รีเซ็ต)
+  const { view: _view, ...filterOnly } = filters;
+  const resetKey = JSON.stringify(filterOnly);
   const isSample = groups.length > 0 && groups.every((g) => g.isSample);
   const nFilters = activeFilterCount(filters);
   const itemProps = { now, onToggleFavorite, onToggleHidden };
@@ -213,20 +216,20 @@ export default function ListingsPage() {
               )}
             </EmptyState>
           ) : filters.view === 'grid' ? (
-            <VirtuosoGrid
-              useWindowScroll
-              data={results}
-              computeItemKey={(_, l) => l.id}
-              listClassName="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
-              itemContent={(_, l) => <ListingCard listing={l} group={groupById.get(l.groupId)} {...itemProps} />}
+            <IncrementalList
+              items={results}
+              resetKey={resetKey}
+              getKey={(l) => l.id}
+              className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+              render={(l) => <ListingCard listing={l} group={groupById.get(l.groupId)} {...itemProps} />}
             />
           ) : (
-            <Virtuoso
-              useWindowScroll
-              data={results}
-              computeItemKey={(_, l) => l.id}
+            <IncrementalList
+              items={results}
+              resetKey={resetKey}
+              getKey={(l) => l.id}
               className="border-t border-line"
-              itemContent={(_, l) => <ListingRow listing={l} group={groupById.get(l.groupId)} {...itemProps} />}
+              render={(l) => <ListingRow listing={l} group={groupById.get(l.groupId)} {...itemProps} />}
             />
           )}
         </section>

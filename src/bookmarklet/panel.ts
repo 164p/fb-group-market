@@ -11,6 +11,7 @@ export type PanelState =
   | { kind: 'setup' }
   | { kind: 'connecting' }
   | { kind: 'running'; collected: number; scanned: number; oldest?: string; direct: boolean }
+  | { kind: 'handoff'; collected: number }
   | { kind: 'done'; title: string; body: string; fallback?: boolean; receiveUrl?: string }
   | { kind: 'error'; title: string; body: string; link?: { href: string; label: string } };
 
@@ -40,6 +41,7 @@ input.n:disabled{opacity:.45}
 .bar i{display:block;height:100%;background:#0f6b57;width:30%;animation:m 1.2s ease-in-out infinite}
 @keyframes m{0%{transform:translateX(-100%)}100%{transform:translateX(340%)}}
 @media (prefers-reduced-motion:reduce){.bar i{animation:none;width:100%;opacity:.4}}
+.link{background:none;border:0;padding:0;color:#5b6862;font-size:13px;text-decoration:underline;cursor:pointer}
 .warn{background:#fff6dc;border-radius:10px;padding:8px 10px;font-size:13px;margin-top:10px}
 a{color:#0f6b57;font-weight:600}
 `;
@@ -67,6 +69,7 @@ export class Panel {
   onStop: () => void = () => {};
   onClose: () => void = () => {};
   onCopy: () => void = () => {};
+  onHandoff: () => void = () => {};
 
   constructor(private groupName: string, private prefs: Prefs) {
     this.host.id = 'fbgm-panel';
@@ -103,9 +106,21 @@ export class Panel {
           h('div', { class: 'bar' }, h('i')),
           h('p', { class: 'muted' }, s.oldest ? `อ่านถึงโพสต์: ${s.oldest}` : 'กำลังเลื่อนหน้าและอ่านโพสต์…'),
         ];
-        if (!s.direct) nodes.push(h('p', { class: 'warn' }, 'ติดต่อหน้ารับข้อมูลไม่ได้ จะให้คัดลอกข้อมูลไปวางเองเมื่อเสร็จ'));
+        if (!s.direct) nodes.push(h('p', { class: 'muted', style: 'margin-top:6px' }, 'เมื่อเสร็จ กดปุ่ม "ส่งเข้าเว็บ" เพื่อดูสินค้า'));
         nodes.push(h('p', { class: 'muted', style: 'margin-top:8px' }, 'เปิดแท็บนี้ค้างไว้จนเสร็จ'), stop);
         return nodes;
+      }
+      case 'handoff': {
+        const send = h('button', { class: 'btn' }, 'ส่งเข้าเว็บ');
+        send.addEventListener('click', () => this.onHandoff());
+        const copy = h('button', { class: 'link' }, 'คัดลอกข้อมูลแทน');
+        copy.addEventListener('click', () => this.onCopy());
+        return [
+          h('div', { class: 'row' }, h('span', { class: 'big' }, String(s.collected)), h('span', { class: 'muted' }, 'โพสต์พร้อมส่ง')),
+          h('p', { class: 'muted' }, 'กดปุ่มเพื่อเปิดเว็บในแท็บใหม่พร้อมข้อมูล'),
+          send,
+          h('p', { style: 'margin-top:10px;text-align:center' }, copy),
+        ];
       }
       case 'done': {
         const nodes: Node[] = [h('p', { style: 'font-weight:600;margin:0 0 4px' }, s.title), h('p', { class: 'muted' }, s.body)];
