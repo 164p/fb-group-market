@@ -101,9 +101,9 @@ export default function ListingsPage() {
       <>
         <h1 className="mb-6 text-2xl font-bold tracking-tight sm:text-[28px]">{th.listings.title}</h1>
         <EmptyState title={th.listings.emptyTitle} body={th.listings.emptyBody} icon={<TagIcon width={24} height={24} />}>
-          <ButtonLink to={ROUTES.groups}>{th.listings.emptyCtaGroups}</ButtonLink>
-          <ButtonLink to={ROUTES.setup} variant="secondary">
-            {th.listings.emptyCtaSetup}
+          <ButtonLink to={ROUTES.setup}>{th.listings.emptyCtaSetup}</ButtonLink>
+          <ButtonLink to={ROUTES.groups} variant="secondary">
+            {th.listings.emptyCtaGroups}
           </ButtonLink>
         </EmptyState>
       </>

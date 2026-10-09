@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../shared/config';
 import type { Listing } from '../../shared/types';
-import { listingKey, repos, type Repos } from './repositories';
+import { defaultGroupName, listingKey, repos, type Repos } from './repositories';
 import { buildSampleData, removeSampleData, SAMPLE_COUNT, seedOnFirstRun, seedSampleData } from './sample';
 import { createDB, type AppDB } from './schema';
 
@@ -54,6 +54,22 @@ describe('groups', () => {
     const g = await store.groups.get('123');
     expect(g?.name).toBe('A');
     expect(g?.listingCount).toBe(0);
+  });
+
+  it('ensure creates a missing group and fills in the real name only over the default', async () => {
+    expect(await store.groups.ensure({ id: '1', url: 'u', name: 'ตลาดมือสอง' })).toBe(true);
+    expect((await store.groups.get('1'))?.name).toBe('ตลาดมือสอง');
+
+    await store.groups.add({ id: '2', url: 'u', name: defaultGroupName('2') });
+    expect(await store.groups.ensure({ id: '2', url: 'u', name: 'ชื่อจริง' })).toBe(false);
+    expect((await store.groups.get('2'))?.name).toBe('ชื่อจริง');
+
+    await store.groups.rename('2', 'ชื่อที่ผู้ใช้ตั้ง');
+    await store.groups.ensure({ id: '2', url: 'u', name: 'ชื่อจาก Facebook' });
+    expect((await store.groups.get('2'))?.name).toBe('ชื่อที่ผู้ใช้ตั้ง');
+
+    expect(await store.groups.ensure({ id: '3', url: 'u' })).toBe(true);
+    expect((await store.groups.get('3'))?.name).toBe(defaultGroupName('3'));
   });
 
   it('removing a group deletes its listings and sessions only', async () => {

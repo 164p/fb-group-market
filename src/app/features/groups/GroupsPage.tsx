@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { Group } from '../../../shared/types';
+import { ButtonLink } from '../../components/Button';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import EmptyState from '../../components/EmptyState';
+import { UsersIcon } from '../../components/Icons';
 import PageHeader from '../../components/PageHeader';
 import { store } from '../../db';
 import { removeSampleData } from '../../db/sample';
 import { useGroups } from '../../hooks/useData';
 import { th } from '../../i18n/th';
+import { ROUTES } from '../../routes';
 import AddGroupForm from './AddGroupForm';
 import GroupRow from './GroupRow';
 
@@ -23,7 +27,10 @@ export default function GroupsPage() {
   }, [highlight]);
 
   if (!groups) return null;
-  const mine = groups.filter((g) => !g.isSample).reverse();
+  // กลุ่มที่ดึงล่าสุดขึ้นก่อน ตามด้วยกลุ่มที่เพิ่มไว้แต่ยังไม่เคยดึง
+  const mine = groups
+    .filter((g) => !g.isSample)
+    .sort((a, b) => (b.lastSyncedAt ?? 0) - (a.lastSyncedAt ?? 0) || b.addedAt - a.addedAt);
   const samples = groups.filter((g) => g.isSample);
 
   const list = (items: Group[]) => (
@@ -38,19 +45,21 @@ export default function GroupsPage() {
     <>
       <PageHeader title={th.groups.title} subtitle={th.groups.subtitle} />
 
-      <AddGroupForm groups={groups} onAdded={setHighlight} onDuplicate={setHighlight} />
-
-      <section className="mt-8" aria-labelledby="my-groups">
+      <section aria-labelledby="my-groups">
         <h2 id="my-groups" className="mb-3 font-semibold">
           กลุ่มของคุณ <span className="font-normal text-muted">({mine.length})</span>
         </h2>
         {mine.length > 0 ? (
           list(mine)
         ) : (
-          <p className="rounded-2xl border border-dashed border-line px-5 py-8 text-center text-sm text-muted thai-wrap">
-            ยังไม่มีกลุ่ม แปะลิงก์กลุ่มด้านบนเพื่อเริ่มต้น
-          </p>
+          <EmptyState title={th.groups.emptyTitle} body={th.groups.emptyBody} icon={<UsersIcon width={24} height={24} />}>
+            <ButtonLink to={ROUTES.setup}>ติดตั้งปุ่มดึงสินค้า</ButtonLink>
+          </EmptyState>
         )}
+      </section>
+
+      <section className="mt-8">
+        <AddGroupForm groups={groups} onAdded={setHighlight} onDuplicate={setHighlight} />
       </section>
 
       {samples.length > 0 && (
@@ -76,10 +85,13 @@ export default function GroupsPage() {
           ดึงสินค้าจากกลุ่มอย่างไร
         </h2>
         <ol className="list-decimal space-y-1 pl-5 text-muted">
-          <li>เพิ่มกลุ่มด้วยลิงก์ด้านบน</li>
-          <li>กด "เปิดกลุ่มเพื่อดึงข้อมูล" ระบบจะเปิดกลุ่มแบบเรียงโพสต์ใหม่สุด</li>
-          <li>บนหน้ากลุ่ม กดบุ๊กมาร์ก "ดึงสินค้า" ที่ติดตั้งไว้ (พร้อมใช้ในเฟสถัดไป)</li>
+          <li>ติดตั้งปุ่ม "ดึงสินค้า" ไว้ที่แถบบุ๊กมาร์ก (ทำครั้งเดียว)</li>
+          <li>เปิดกลุ่มซื้อขายบน Facebook ที่คุณเป็นสมาชิก</li>
+          <li>กดปุ่ม "ดึงสินค้า" กลุ่มจะถูกเพิ่มที่นี่ และสินค้าจะขึ้นในหน้าสินค้า</li>
         </ol>
+        <p className="mt-3 text-muted">
+          กลุ่มที่เพิ่มไว้แล้วกด "เปิดกลุ่มเพื่อดึงข้อมูล" ได้เลย ระบบจะเปิดแบบเรียงโพสต์ใหม่สุดให้
+        </p>
       </section>
 
       <ConfirmDialog

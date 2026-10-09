@@ -2,7 +2,7 @@ import { useId, useMemo, useState } from 'react';
 import { GROUP_URL_ERRORS, parseGroupUrl } from '../../../shared/parser/url';
 import type { Group } from '../../../shared/types';
 import { CheckIcon, PlusIcon } from '../../components/Icons';
-import { store } from '../../db';
+import { defaultGroupName, store } from '../../db';
 
 /**
  * ฟอร์มแปะลิงก์กลุ่ม
@@ -40,7 +40,7 @@ export default function AddGroupForm({
     }
     setBusy(true);
     try {
-      const added = await store.groups.add({ id: parsed.id, url: parsed.url, name: `กลุ่ม ${parsed.id}` });
+      const added = await store.groups.add({ id: parsed.id, url: parsed.url, name: defaultGroupName(parsed.id) });
       if (added) {
         setText('');
         setShowError(false);
@@ -58,7 +58,11 @@ export default function AddGroupForm({
   else if (parsed.ok) message = { tone: 'ok', text: `รหัสกลุ่ม ${parsed.id}` };
   else if (showError && text.trim()) message = { tone: 'error', text: GROUP_URL_ERRORS[parsed.reason] };
   else if (showError) message = { tone: 'error', text: GROUP_URL_ERRORS.empty };
-  else message = { tone: 'hint', text: 'คัดลอกลิงก์จากแถบที่อยู่ของเบราว์เซอร์ขณะเปิดหน้าแรกของกลุ่ม' };
+  else
+    message = {
+      tone: 'hint',
+      text: 'ไม่บังคับ — ใช้เมื่ออยากเก็บรายชื่อกลุ่มไว้เปิดดึงข้อมูลภายหลัง กลุ่มที่ดึงข้อมูลแล้วจะเพิ่มเองอัตโนมัติ',
+    };
 
   const invalid = message.tone === 'error';
 
@@ -72,7 +76,7 @@ export default function AddGroupForm({
       className="rounded-2xl border border-line bg-surface p-5"
     >
       <label htmlFor={inputId} className="mb-2 block font-semibold">
-        เพิ่มกลุ่ม
+        เพิ่มกลุ่มไว้ล่วงหน้าด้วยลิงก์
       </label>
       <div className="flex flex-col gap-2 sm:flex-row">
         <input
@@ -97,7 +101,7 @@ export default function AddGroupForm({
         <button
           type="submit"
           disabled={busy}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-accent px-5 font-semibold text-accent-ink hover:brightness-110 disabled:opacity-60"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-line bg-surface px-5 font-semibold hover:bg-sunken disabled:opacity-60"
         >
           <PlusIcon width={18} height={18} />
           เพิ่มกลุ่ม

@@ -5,6 +5,9 @@ import type { AppDB } from './schema';
 
 export const listingKey = (groupId: string, postId: string) => `${groupId}_${postId}`;
 
+/** ชื่อชั่วคราวของกลุ่มที่เพิ่มด้วยลิงก์ ก่อนรู้ชื่อจริง */
+export const defaultGroupName = (id: string) => `กลุ่ม ${id}`;
+
 /* ------------------------------------------------------------------ groups */
 
 export function groupsRepo(db: AppDB) {
@@ -22,6 +25,31 @@ export function groupsRepo(db: AppDB) {
     },
 
     rename: (id: string, name: string) => db.groups.update(id, { name: name.trim() }),
+
+    /**
+     * ใช้ตอนรับข้อมูลจาก bookmarklet: สร้างกลุ่มถ้ายังไม่มี
+     * ถ้ามีแล้วและยังใช้ชื่อเริ่มต้น "กลุ่ม {id}" → เปลี่ยนเป็นชื่อจริงจากหน้า Facebook
+     * (ไม่ทับชื่อที่ผู้ใช้ตั้งเอง)
+     * @returns true เมื่อสร้างกลุ่มใหม่
+     */
+    async ensure(info: { id: string; url: string; name?: string }): Promise<boolean> {
+      return db.transaction('rw', db.groups, async () => {
+        const name = info.name?.trim();
+        const existing = await db.groups.get(info.id);
+        if (!existing) {
+          await db.groups.add({
+            id: info.id,
+            url: info.url,
+            name: name || defaultGroupName(info.id),
+            addedAt: Date.now(),
+            listingCount: 0,
+          });
+          return true;
+        }
+        if (name && existing.name === defaultGroupName(info.id)) await db.groups.update(info.id, { name });
+        return false;
+      });
+    },
 
     /** ลบกลุ่มพร้อมสินค้าและประวัติการดึงทั้งหมดของกลุ่มนั้น */
     async remove(id: string) {
